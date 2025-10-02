@@ -61,18 +61,19 @@ step_progress "Configuring ping group range..."
 (sudo sysctl -w net.ipv4.ping_group_range="0 2147483647") > /dev/null 2>&1 & spin
 echo -e "${GREEN}✔ Ping group range configured${NC}"
 
-step_progress "Detecting CPU architecture and downloading GreenCloud binaries..."
+step_progress "Detecting CPU architecture..."
 ARCH=$(uname -m)
 if [[ "$ARCH" == "aarch64" || "$ARCH" == "arm64" ]]; then
-  echo "✅ ARM architecture detected"
+  echo -e "${GREEN}✔ ARM architecture detected${NC}"
   GCNODE_URL="https://dl.greencloudcomputing.io/gcnode/main/gcnode-main-linux-arm64"
   GCCLI_URL="https://dl.greencloudcomputing.io/gccli/main/gccli-main-linux-arm64"
 else
-  echo "✅ x86_64 architecture detected"
+  echo -e "${GREEN}✔ x86_64 architecture detected${NC}"
   GCNODE_URL="https://dl.greencloudcomputing.io/gcnode/main/gcnode-main-linux-amd64"
   GCCLI_URL="https://dl.greencloudcomputing.io/gccli/main/gccli-main-linux-amd64"
 fi
 
+step_progress "Downloading GreenCloud Node and CLI..."
 (
   sudo mkdir -p /var/lib/greencloud
   wget -q "$GCNODE_URL" -O gcnode
@@ -82,8 +83,9 @@ fi
 ) & spin
 echo -e "${GREEN}✔ GreenCloud node and CLI installed for $ARCH${NC}"
 
-step_progress "Setting up gcnode systemd service..."
+step_progress "Downloading and etting up gcnode systemd service..."
 (
+  curl -O https://raw.githubusercontent.com/samstreets/greencloud/main/gcnode.service
   sudo mv gcnode.service /etc/systemd/system/
   sudo systemctl daemon-reload
   sudo systemctl enable gcnode
