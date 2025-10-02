@@ -25,7 +25,7 @@ spin() {
 
 # Step counter
 step=1
-total=9
+total=10
 
 step_progress() {
   echo -e "${CYAN}Step $step of $total: $1${NC}"
@@ -41,8 +41,8 @@ step_progress "Installing Arkade CLI..."
 (curl -sLS https://get.arkade.dev | sudo sh) > /dev/null 2>&1 & spin
 echo -e "${GREEN}✔ Arkade installed${NC}"
 
-step_progress "Installing containerd via Arkade..."
-(arkade get containerd && sudo mv containerd /usr/local/bin/) > /dev/null 2>&1 & spin
+step_progress "Installing containerd..."
+(sudo apt install -y containerd) > /dev/null 2>&1 & spin
 echo -e "${GREEN}✔ containerd installed${NC}"
 
 step_progress "Installing runc via Arkade..."
@@ -51,15 +51,30 @@ echo -e "${GREEN}✔ runc installed${NC}"
 
 step_progress "Configuring containerd..."
 (
-  sudo mkdir -p /etc/containerd
+  sudo mkdir -p /etcd
   containerd config default | sudo tee /etc/containerd/config.toml > /dev/null
   sudo systemctl enable --now containerd
 ) > /dev/null 2>&1 & spin
 echo -e "${GREEN}✔ containerd configured${NC}"
 
-step_progress "Configuring ping group range..."
+step_progress "Configuring ping group range (temporary)..."
 (sudo sysctl -w net.ipv4.ping_group_range="0 2147483647") > /dev/null 2>&1 & spin
 echo -e "${GREEN}✔ Ping group range configured${NC}"
+
+step_progress "Making ping group range persistent..."
+(
+  SYSCTL_CONF="/etc/sysctl.d/99-ping-group.conf"
+  PING_RANGE="net.ipv4.ping_group_range = 0 2147483647"
+
+  if grep -q "net.ipv4.ping_group_range" "$SYSCTL_CONF" 2>/dev/null; then
+    sudo sed -i "s/^net\.ipv4\.ping_group_range.*/$PING_RANGE/" "$SYSCTL_CONF"
+  else
+    echo "$PING_RANGE" | sudo tee "$SYSCTL_CONF" > /dev/null
+  fi
+
+  sudo sysctl --system
+) > /dev/null 2>&1 & spin
+echo -e "${GREEN}✔ Ping group range made persistent${NC}"
 
 step_progress "Detecting CPU architecture..."
 ARCH=$(uname -m)
@@ -83,7 +98,7 @@ step_progress "Downloading GreenCloud Node and CLI..."
 ) & spin
 echo -e "${GREEN}✔ GreenCloud node and CLI installed for $ARCH${NC}"
 
-step_progress "Downloading and etting up gcnode systemd service..."
+step_progress "Downloading and setting up gcnode systemd service..."
 (
   curl -O https://raw.githubusercontent.com/samstreets/greencloud/main/gcnode.service
   sudo mv gcnode.service /etc/systemd/system/
