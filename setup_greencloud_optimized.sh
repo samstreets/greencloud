@@ -37,17 +37,16 @@ step_progress "Updating system packages..."
 (sudo apt update -y && sudo apt upgrade -y) > /dev/null 2>&1 & spin
 echo -e "${GREEN}✔ System updated${NC}"
 
-step_progress "Installing Arcade CLI..."
+step_progress "Installing Arkade CLI..."
 (curl -sLS https://get.arkade.dev | sudo sh) > /dev/null 2>&1 & spin
-echo -e "${GREEN}✔ Arcade installed${NC}"
+echo -e "${GREEN}✔ Arkade installed${NC}"
 
-step_progress "Installing containerd via Arcade..."
+step_progress "Installing containerd via Arkade..."
 (arkade get containerd && sudo mv containerd /usr/local/bin/) > /dev/null 2>&1 & spin
 echo -e "${GREEN}✔ containerd installed${NC}"
 
-step_progress "Installing runc via Arcade..."
+step_progress "Installing runc via Arkade..."
 (arkade get runc && sudo mv runc /usr/local/sbin/) > /dev/null 2>&1 & spin
-runc --version
 echo -e "${GREEN}✔ runc installed${NC}"
 
 step_progress "Configuring containerd..."
@@ -89,7 +88,6 @@ step_progress "Setting up gcnode systemd service..."
   sudo systemctl daemon-reload
   sudo systemctl enable gcnode
 ) > /dev/null 2>&1 & spin
-sudo systemctl status gcnode
 echo -e "${GREEN}✔ gcnode service configured${NC}"
 
 echo -e "\n${YELLOW}🎉 All $((step - 1)) steps completed successfully!${NC}"
