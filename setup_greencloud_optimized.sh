@@ -25,7 +25,7 @@ spin() {
 
 # Step counter
 step=1
-total=10
+total=9
 
 step_progress() {
   echo -e "${CYAN}Step $step of $total: $1${NC}"
@@ -37,16 +37,12 @@ step_progress "Updating system packages..."
 (sudo apt update -y && sudo apt upgrade -y) > /dev/null 2>&1 & spin
 echo -e "${GREEN}✔ System updated${NC}"
 
-step_progress "Installing Arkade CLI..."
-(curl -sLS https://get.arkade.dev | sudo sh) > /dev/null 2>&1 & spin
-echo -e "${GREEN}✔ Arkade installed${NC}"
-
 step_progress "Installing containerd..."
 (sudo apt install -y containerd) > /dev/null 2>&1 & spin
 echo -e "${GREEN}✔ containerd installed${NC}"
 
-step_progress "Installing runc via Arkade..."
-(arkade get runc && sudo mv runc /usr/local/sbin/) > /dev/null 2>&1 & spin
+step_progress "Installing runc..."
+(sudo apt install runc -y) > /dev/null 2>&1 & spin
 echo -e "${GREEN}✔ runc installed${NC}"
 
 step_progress "Configuring containerd..."
