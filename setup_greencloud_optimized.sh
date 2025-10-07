@@ -103,4 +103,20 @@ step_progress "Downloading and setting up gcnode systemd service..."
 ) > /dev/null 2>&1 & spin
 echo -e "${GREEN}✔ gcnode service configured${NC}"
 
+
+# Prompt user for GreenCloud API key and login
+echo -e "\n${CYAN}Please enter your GreenCloud API key:${NC}"
+#read -r API_KEY
+gccli login -k "$API_KEY"
+
 echo -e "\n${YELLOW}🎉 All $((step - 1)) steps completed successfully!${NC}"
+
+# Extract and display GreenCloud Node ID
+echo -e "\n${CYAN}Extracting GreenCloud Node ID...${NC}"
+NODE_ID=$(sudo systemctl start gcnode 2>&1 | grep -oP '(?<=ID → )[a-f0-9-]+')
+echo -e "${GREEN}✔ Captured Node ID: $NODE_ID${NC}"
+
+# Add node to GreenCloud using captured NODE_ID
+echo -e "\n${CYAN}Adding node to GreenCloud...${NC}"
+gccli node add -external | echo "$NODE_ID"
+echo -e "${GREEN}✔ Node added successfully!${NC}"
