@@ -116,7 +116,7 @@ read -r NODE_NAME
 
 # Extract and display GreenCloud Node ID
 echo -e "\n${CYAN}Extracting GreenCloud Node ID...${NC}"
-sudo sudo systemctl start gcnode
+sudo systemctl start gcnode
 NODE_ID=$(sudo systemctl status gcnode  | grep -oP '(?<=ID → )[a-f0-9-]+')
 echo -e "${GREEN}✔ Captured Node ID: $NODE_ID${NC}"
 
