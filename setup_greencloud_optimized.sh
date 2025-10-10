@@ -113,10 +113,11 @@ echo -e "\n${YELLOW}🎉 All $((step - 1)) steps completed successfully!${NC}"
 
 # Extract and display GreenCloud Node ID
 echo -e "\n${CYAN}Extracting GreenCloud Node ID...${NC}"
-NODE_ID=$(sudo systemctl start gcnode 2>&1 | grep -oP '(?<=ID → )[a-f0-9-]+')
+sudo sudo systemctl start gcnode
+NODE_ID=$(sudo systemctl status gcnode  | grep -oP '(?<=ID → )[a-f0-9-]+')
 echo -e "${GREEN}✔ Captured Node ID: $NODE_ID${NC}"
 
 # Add node to GreenCloud using captured NODE_ID
 echo -e "\n${CYAN}Adding node to GreenCloud...${NC}"
-gccli node add -external | echo "$NODE_ID"
+gccli node add --external --id $NODE_ID --description "TestNode"
 echo -e "${GREEN}✔ Node added successfully!${NC}"
