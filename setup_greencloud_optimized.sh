@@ -106,6 +106,7 @@ echo -e "${GREEN}✔ gcnode service configured${NC}"
 echo -e "\n${YELLOW}🎉 All $((step - 1)) install steps completed successfully!${NC}"
 
 # Prompt user for GreenCloud API key and login
+gccli logout -q
 echo -e "\n${CYAN}Please enter your GreenCloud API key:${NC}"
 read -r API_KEY
 gccli login -k "$API_KEY" > /dev/null 2>&1
