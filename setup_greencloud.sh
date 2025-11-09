@@ -63,7 +63,7 @@ step_progress "Making ping group range persistent..."
   SYSCTL_CONF="/etc/sysctl.d/99-ping-group.conf"
   PING_RANGE="net.ipv4.ping_group_range = 0 2147483647"
 
-  if grep -q "net.ipv4.ping_group_range" "$SYSCTL_CONF" 2 >/dev/null; then
+  if grep -q "net.ipv4.ping_group_range" "$SYSCTL_CONF" 2>/dev/null; then
     sudo sed -i "s/^net\.ipv4\.ping_group_range.*/$PING_RANGE/" "$SYSCTL_CONF"
   else
     echo "$PING_RANGE" | sudo tee "$SYSCTL_CONF" > /dev/null
@@ -120,10 +120,19 @@ read -r NODE_NAME
 echo -e "\n${CYAN}Extracting GreenCloud Node ID...${NC}"
 sudo systemctl start gcnode
 sleep 2
-NODE_ID=$(sudo systemctl status gcnode  | grep -oP '(?<=ID → )[a-f0-9-]+')
+
+NODE_ID=""
+while [ -z "$NODE_ID" ]; do
+  NODE_ID=$(sudo systemctl status gcnode | grep -oP '(?<=ID → )[a-f0-9-]+')
+  if [ -z "$NODE_ID" ]; then
+    echo -e "${YELLOW}Waiting for Node ID...${NC}"
+    sleep 2
+  fi
+done
+
 echo -e "${GREEN}✔ Captured Node ID: $NODE_ID${NC}"
 
 # Add node to GreenCloud using captured NODE_ID
 echo -e "\n${CYAN}Adding node to GreenCloud...${NC}"
-gccli node add --external --id $NODE_ID --description $NODE_NAME > /dev/null 2>&1
+gccli node add --external --id "$NODE_ID" --description "$NODE_NAME" > /dev/null 2>&1
 echo -e "${GREEN}✔ Node added successfully!${NC}"
