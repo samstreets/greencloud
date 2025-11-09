@@ -40,16 +40,9 @@ gccli login -k "$API_KEY" > /dev/null 2>&1
 
 # Extract and display GreenCloud Node ID
 echo -e "\n${CYAN}Extracting GreenCloud Node ID...${NC}"
-
-NODE_ID=""
-while [ -z "$NODE_ID" ]; do
-  NODE_ID=$(sudo systemctl status gcnode | grep -oP '(?<=ID → )[a-f0-9-]+')
-  if [ -z "$NODE_ID" ]; then
-    echo -e "${YELLOW}Waiting for Node ID...${NC}"
-    sleep 2
-  fi
-done
-
+sudo systemctl restart gcnode
+sleep 2
+NODE_ID=$(sudo systemctl status gcnode | grep -oP '(?<=ID → )[a-f0-9-]+')
 echo -e "${GREEN}✔ Captured Node ID: $NODE_ID${NC}"
 
 # Removing node from GreenCloud using captured NODE_ID
