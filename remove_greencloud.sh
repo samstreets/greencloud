@@ -47,6 +47,7 @@ echo -e "${GREEN}✔ Captured Node ID: $NODE_ID${NC}"
 
 # Removing node from GreenCloud using captured NODE_ID
 echo -e "\n${CYAN}Removing node from GreenCloud...${NC}"
+sudo systemctl stop gcnode
 gccli node delete -i $NODE_ID #> /dev/null 2>&1
 echo -e "${GREEN}✔ Node removed successfully!${NC}"
 
@@ -70,7 +71,6 @@ echo -e "${GREEN}✔ GreenCloud node and CLI removed"
 step_progress "Removing gcnode systemd service..."
 (
   sudo rm /etc/systemd/system/gcnode.service
-  sudo systemctl stop gcnode
   sudo systemctl daemon-reload
 ) > /dev/null 2>&1 & spin
 echo -e "${GREEN}✔ gcnode service removed${NC}"
