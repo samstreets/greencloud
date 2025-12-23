@@ -38,7 +38,10 @@ step_progress "Updating system packages..."
 echo -e "${GREEN}✔ System updated${NC}"
 
 step_progress "Installing containerd..."
-(sudo apt install -y containerd) > /dev/null 2>&1 & spin
+(
+  sudo apt install -y containerd
+  sudo apt install -y containernetworking-plugins
+) > /dev/null 2>&1 & spin
 echo -e "${GREEN}✔ containerd installed${NC}"
 
 step_progress "Installing runc..."
@@ -50,6 +53,8 @@ step_progress "Configuring containerd..."
   sudo mkdir -p /etcd
   sudo mkdir -p /etc/containerd
   containerd config default | sudo tee /etc/containerd/config.toml > /dev/null
+  sudo mkdir -p /opt/cni/bin
+  sudo ln -sf /usr/lib/cni/* /opt/cni/bin/
   sudo systemctl enable --now containerd
 ) > /dev/null 2>&1 & spin
 echo -e "${GREEN}✔ containerd configured${NC}"
