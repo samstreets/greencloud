@@ -80,6 +80,7 @@ run_step "Configuring containerd…" bash -c '
 '
 
 run_step "Making ping group range persistent…" bash -c '
+  apt install procps
   SYSCTL_CONF="/etc/sysctl.d/99-ping-group.conf"
   PING_RANGE="net.ipv4.ping_group_range = 0 2147483647"
   if [ -f "$SYSCTL_CONF" ] && grep -q "^net\.ipv4\.ping_group_range" "$SYSCTL_CONF"; then
