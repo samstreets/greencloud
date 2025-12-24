@@ -54,60 +54,43 @@ run_step() {
   fi
 }
 
-# Ensure sudo session stays warm
-if command -v sudo >/dev/null 2>&1; then
-  sudo -v
-  # Keep sudo alive while the script runs
-  ( while true; do sleep 60; sudo -n true 2>/dev/null || exit; done ) &
-  SUDO_KEEPALIVE_PID=$!
-  trap 'kill $SUDO_KEEPALIVE_PID 2>/dev/null || true' EXIT
-else
-  echo -e "${YELLOW}sudo not found; continuing as current user${NC}"
-fi
-
-# Detect OS supports systemd
-if ! command -v systemctl >/dev/null 2>&1; then
-  echo -e "${YELLOW}systemctl not found. This script expects a systemd-based distro.${NC}"
-  exit 1
-fi
-
 export DEBIAN_FRONTEND=noninteractive
 
 run_step "Updating system packages…" \
-  bash -c 'sudo apt-get update -y'
+  bash -c 'apt-get update -y'
 
 run_step "Installing prerequisites (curl, wget, certs)…" \
-  bash -c 'sudo apt-get install -y curl wget ca-certificates'
+  bash -c 'apt-get install -y curl wget ca-certificates'
 
 run_step "Installing containerd and CNI plugins…" \
-  bash -c 'sudo apt-get install -y containerd runc containernetworking-plugins'
+  bash -c 'apt-get install -y containerd runc containernetworking-plugins'
 
 run_step "Configuring containerd…" bash -c '
-  sudo mkdir -p /etc/containerd
+  mkdir -p /etc/containerd
   command -v containerd >/dev/null
-  containerd config default | sudo tee /etc/containerd/config.toml >/dev/null
+  containerd config default | tee /etc/containerd/config.toml >/dev/null
   # Ensure CNI binaries are in expected path
-  sudo mkdir -p /opt/cni/bin
+  mkdir -p /opt/cni/bin
   if [ -d /usr/lib/cni ]; then
-    sudo ln -sf /usr/lib/cni/* /opt/cni/bin/ || true
+    ln -sf /usr/lib/cni/* /opt/cni/bin/ || true
   elif [ -d /usr/libexec/cni ]; then
-    sudo ln -sf /usr/libexec/cni/* /opt/cni/bin/ || true
+    ln -sf /usr/libexec/cni/* /opt/cni/bin/ || true
   fi
-  sudo systemctl enable --now containerd
+  systemctl enable --now containerd
 '
 
 run_step "Configuring ping group range (temporary)…" \
-  bash -c 'sudo sysctl -w net.ipv4.ping_group_range="0 2147483647"'
+  bash -c 'sysctl -w net.ipv4.ping_group_range="0 2147483647"'
 
 run_step "Making ping group range persistent…" bash -c '
   SYSCTL_CONF="/etc/sysctl.d/99-ping-group.conf"
   PING_RANGE="net.ipv4.ping_group_range = 0 2147483647"
   if [ -f "$SYSCTL_CONF" ] && grep -q "^net\.ipv4\.ping_group_range" "$SYSCTL_CONF"; then
-    sudo sed -i "s/^net\.ipv4\.ping_group_range.*/$PING_RANGE/" "$SYSCTL_CONF"
+    sed -i "s/^net\.ipv4\.ping_group_range.*/$PING_RANGE/" "$SYSCTL_CONF"
   else
-    echo "$PING_RANGE" | sudo tee "$SYSCTL_CONF" >/dev/null
+    echo "$PING_RANGE" | tee "$SYSCTL_CONF" >/dev/null
   fi
-  sudo sysctl --system
+  sysctl --system
 '
 
 # Architecture detection
@@ -132,15 +115,15 @@ esac
 
 run_step "Downloading GreenCloud Node and CLI…" bash -c '
   set -Eeuo pipefail
-  sudo mkdir -p /var/lib/greencloud
+  mkdir -p /var/lib/greencloud
   tmpdir="$(mktemp -d)"
   trap "rm -rf \"$tmpdir\"" RETURN
   curl -fsSL "'"$GCNODE_URL"'" -o "$tmpdir/gcnode"
   chmod +x "$tmpdir/gcnode"
-  sudo mv "$tmpdir/gcnode" /var/lib/greencloud/gcnode
+  mv "$tmpdir/gcnode" /var/lib/greencloud/gcnode
   curl -fsSL "'"$GCCLI_URL"'" -o "$tmpdir/gccli"
   chmod +x "$tmpdir/gccli"
-  sudo mv "$tmpdir/gccli" /usr/local/bin/gccli
+  mv "$tmpdir/gccli" /usr/local/bin/gccli
 '
 echo -e "${GREEN}✔ GreenCloud node and CLI installed for $ARCH${NC}"
 
@@ -149,9 +132,9 @@ run_step "Downloading and setting up gcnode systemd service…" bash -c '
   tmpdir="$(mktemp -d)"
   trap "rm -rf \"$tmpdir\"" RETURN
   curl -fsSL https://raw.githubusercontent.com/samstreets/greencloud/main/gcnode.service -o "$tmpdir/gcnode.service"
-  sudo mv "$tmpdir/gcnode.service" /etc/systemd/system/gcnode.service
-  sudo systemctl daemon-reload
-  sudo systemctl enable gcnode
+  mv "$tmpdir/gcnode.service" /etc/systemd/system/gcnode.service
+  systemctl daemon-reload
+  systemctl enable gcnode
 '
 
 echo -e "\n${YELLOW}🎉 All $((step - 1)) install steps completed successfully!${NC}"
@@ -171,14 +154,14 @@ echo -ne "\n${CYAN}Please enter what you would like to name the node: ${NC}"
 read -r NODE_NAME
 
 echo -e "\n${CYAN}Starting gcnode and extracting Node ID…${NC}"
-sudo systemctl start gcnode
+systemctl start gcnode
 # Wait for Node ID in logs
 NODE_ID=""
 attempts=0
 max_attempts=30
 sleep 2
 while [ -z "$NODE_ID" ] && [ "$attempts" -lt "$max_attempts" ]; do
-  NODE_ID="$(sudo journalctl -u gcnode --no-pager -n 200 | sed -n "s/.*ID → \([a-f0-9-]\+\).*/\1/p" | tail -1)"
+  NODE_ID="$(journalctl -u gcnode --no-pager -n 200 | sed -n "s/.*ID → \([a-f0-9-]\+\).*/\1/p" | tail -1)"
   if [ -z "$NODE_ID" ]; then
     echo -e "${YELLOW}Waiting for Node ID... (${attempts}/${max_attempts})${NC}"
     sleep 2
