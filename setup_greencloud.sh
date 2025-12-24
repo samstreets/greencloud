@@ -79,9 +79,6 @@ run_step "Configuring containerd…" bash -c '
   systemctl enable --now containerd
 '
 
-run_step "Configuring ping group range (temporary)…" \
-  bash -c 'sysctl -w net.ipv4.ping_group_range="0 2147483647"'
-
 run_step "Making ping group range persistent…" bash -c '
   SYSCTL_CONF="/etc/sysctl.d/99-ping-group.conf"
   PING_RANGE="net.ipv4.ping_group_range = 0 2147483647"
