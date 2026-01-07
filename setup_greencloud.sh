@@ -143,10 +143,10 @@ run_step "Downloading GreenCloud Node and CLI…" bash -c '
   mkdir -p /var/lib/greencloud
   tmpdir="$(mktemp -d)"
   trap "rm -rf \"$tmpdir\"" RETURN
-  curl -fsSL "'"$GCNODE_URL"'" -o "$tmpdir/gcnode"
+  wget -fsSL "'"$GCNODE_URL"'" -o "$tmpdir/gcnode"
   chmod +x "$tmpdir/gcnode"
   mv "$tmpdir/gcnode" /var/lib/greencloud/gcnode
-  curl -fsSL "'"$GCCLI_URL"'" -o "$tmpdir/gccli"
+  wget -fsSL "'"$GCCLI_URL"'" -o "$tmpdir/gccli"
   chmod +x "$tmpdir/gccli"
   mv "$tmpdir/gccli" /usr/local/bin/gccli
 '
@@ -156,7 +156,7 @@ run_step "Downloading and setting up gcnode systemd service…" bash -c '
   set -Eeuo pipefail
   tmpdir="$(mktemp -d)"
   trap "rm -rf \"$tmpdir\"" RETURN
-  curl -fsSL https://raw.githubusercontent.com/samstreets/greencloud/main/gcnode.service -o "$tmpdir/gcnode.service"
+  wget https://raw.githubusercontent.com/samstreets/greencloud/main/gcnode.service -o "$tmpdir/gcnode.service"
   mv "$tmpdir/gcnode.service" /etc/systemd/system/gcnode.service
   systemctl daemon-reload
   systemctl enable gcnode
