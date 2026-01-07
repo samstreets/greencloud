@@ -116,7 +116,7 @@ run_step "Configuring containerd…" bash -c '
 #    echo "$PING_RANGE" | tee "$SYSCTL_CONF" >/dev/null
 #  fi
 #  sysctl --system
-'
+#'
 
 # Architecture detection
 step_progress "Detecting CPU architecture…"
