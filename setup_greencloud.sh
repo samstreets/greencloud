@@ -104,9 +104,9 @@ run_step "Downloading GreenCloud Node and CLI…" bash -c '
   set -Eeuo pipefail
   wget "'"$GCNODE_URL"'" -o "gcnode"
   chmod +x "gcnode"
-  mv "$tmpdir/gcnode" /var/lib/greencloud/gcnode
+  mv "gcnode" /var/lib/greencloud/gcnode
   wget "'"$GCCLI_URL"'" -o "gccli"
-  chmod +x "$tmpdir/gccli"
+  chmod +x "gccli"
   mv "gccli" /usr/local/bin/gccli
 '
 echo -e "${GREEN}✔ GreenCloud node and CLI installed for $ARCH${NC}"
