@@ -1,8 +1,11 @@
+
 [Unit]
 Description=GreenCloud Node Service
 After=network.target
 
 [Service]
+# Ensure the sysctl is applied before starting the service
+ExecStartPre=/usr/sbin/sysctl -w net.ipv4.ping_group_range="0 2147483647"
 ExecStart=/var/lib/greencloud/gcnode
 Restart=always
 User=root
