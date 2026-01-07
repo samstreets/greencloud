@@ -143,10 +143,10 @@ run_step "Downloading GreenCloud Node and CLI…" bash -c '
   mkdir -p /var/lib/greencloud
   tmpdir="$(mktemp -d)"
   trap "rm -rf \"$tmpdir\"" RETURN
-  wget -fsSL "'"$GCNODE_URL"'" -o "$tmpdir/gcnode"
+  wget "'"$GCNODE_URL"'" -o "$tmpdir/gcnode"
   chmod +x "$tmpdir/gcnode"
   mv "$tmpdir/gcnode" /var/lib/greencloud/gcnode
-  wget -fsSL "'"$GCCLI_URL"'" -o "$tmpdir/gccli"
+  wget "'"$GCCLI_URL"'" -o "$tmpdir/gccli"
   chmod +x "$tmpdir/gccli"
   mv "$tmpdir/gccli" /usr/local/bin/gccli
 '
