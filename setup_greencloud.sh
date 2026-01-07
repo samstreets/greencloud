@@ -79,33 +79,33 @@ run_step "Configuring containerd…" bash -c '
   systemctl enable --now containerd
 '
 
-run_step "Making ping group range persistent…" bash -c '
-  set -euo pipefail
+#run_step "Making ping group range persistent…" bash -c '
+#  set -euo pipefail
 
-  SYSCTL_CONF="/etc/sysctl.d/99-ping-group.conf"
-  PING_RANGE_LINE="net.ipv4.ping_group_range = 0 2147483647"
-  PROC_NODE="/proc/sys/net/ipv4/ping_group_range"
+#  SYSCTL_CONF="/etc/sysctl.d/99-ping-group.conf"
+#  PING_RANGE_LINE="net.ipv4.ping_group_range = 0 2147483647"
+#  PROC_NODE="/proc/sys/net/ipv4/ping_group_range"
 
   # 1) Persist the setting
-  mkdir -p /etc/sysctl.d
-  if [ -f "$SYSCTL_CONF" ] && grep -q "^net\.ipv4\.ping_group_range" "$SYSCTL_CONF"; then
-    sed -i "s/^net\.ipv4\.ping_group_range.*/$PING_RANGE_LINE/" "$SYSCTL_CONF"
-  else
-    printf "%s\n" "$PING_RANGE_LINE" > "$SYSCTL_CONF"
-  fi
+  #mkdir -p /etc/sysctl.d
+  #if [ -f "$SYSCTL_CONF" ] && grep -q "^net\.ipv4\.ping_group_range" "$SYSCTL_CONF"; then
+  #  sed -i "s/^net\.ipv4\.ping_group_range.*/$PING_RANGE_LINE/" "$SYSCTL_CONF"
+  #else
+  #  printf "%s\n" "$PING_RANGE_LINE" > "$SYSCTL_CONF"
+  #fi
 
   # 2) Apply immediately without relying on sysctl --system
-  if [ -e "$PROC_NODE" ]; then
+  #if [ -e "$PROC_NODE" ]; then
     # Write the two numbers directly into /proc node
-    echo "0 2147483647" > "$PROC_NODE"
-  else
-    echo "WARNING: $PROC_NODE does not exist. Your kernel may not support ping_group_range." >&2
-    exit 0
-  fi
+  #  echo "0 2147483647" > "$PROC_NODE"
+  #else
+  #  echo "WARNING: $PROC_NODE does not exist. Your kernel may not support ping_group_range." >&2
+  #  exit 0
+  #fi
 
   # 3) Verify
-  CURRENT=$(cat "$PROC_NODE")
-  echo "Applied: net.ipv4.ping_group_range = $CURRENT"
+  #CURRENT=$(cat "$PROC_NODE")
+  #echo "Applied: net.ipv4.ping_group_range = $CURRENT"
 
   #apt install procps
   #SYSCTL_CONF="/etc/sysctl.d/99-ping-group.conf"
