@@ -80,7 +80,7 @@ run_step "Configuring containerd…" bash -c '
 '
 
 
-# Architecture detection
+
 step_progress "Detecting CPU architecture…"
 ARCH="$(uname -m)"
 case "$ARCH" in
@@ -100,16 +100,23 @@ case "$ARCH" in
     ;;
 esac
 
+# Export so the subshell sees them
+export GCNODE_URL GCCLI_URL
+
 run_step "Downloading GreenCloud Node and CLI…" bash -c '
   set -Eeuo pipefail
+
   mkdir -p /var/lib/greencloud
+
   wget "$GCNODE_URL" -O gcnode
   chmod +x gcnode
   mv gcnode /var/lib/greencloud/gcnode
+
   wget "$GCCLI_URL" -O gccli
   chmod +x gccli
   mv gccli /usr/local/bin/gccli
 '
+
 
 echo -e "${GREEN}✔ GreenCloud node and CLI installed for $ARCH${NC}"
 
