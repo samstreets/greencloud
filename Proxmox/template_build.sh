@@ -50,11 +50,11 @@ sleep 6
 # ========= Run your setup and place configure script =========
 echo "[INFO] Running setup_node.sh..."
 pct exec "$VMID" -- bash -lc \
-  "curl -fsSL https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/setup_node.sh | bash"
+  "wget https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/setup_node.sh | bash"
 
 echo "[INFO] Placing configure_node.sh into /root (executable)..."
 pct exec "$VMID" -- bash -lc \
-  "curl -fsSL -o /root/configure_node.sh https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/configure_node.sh && chmod +x /root/configure_node.sh"
+  "wget -o /root/configure_node.sh https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/configure_node.sh && chmod +x /root/configure_node.sh"
 
 # ========= Slim down image (optional) =========
 pct exec "$VMID" -- bash -lc "apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*"
