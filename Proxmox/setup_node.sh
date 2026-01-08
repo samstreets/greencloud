@@ -114,7 +114,7 @@ run_step "Downloading GreenCloud Node and CLI…" bash -c '
 
   wget "$GCCLI_URL" -O gccli
   chmod +x gccli
-  mv gccli /usr/local/bin/gccli
+  mv gccli /usr/bin/gccli
 '
 
 
