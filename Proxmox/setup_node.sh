@@ -120,54 +120,45 @@ run_step "Downloading GreenCloud Node and CLI…" bash -c '
 
 echo -e "${GREEN}✔ GreenCloud node and CLI installed for $ARCH${NC}"
 
-
-run_step "Downloading and setting up gcnode systemd service…" bash -c '
+run_step "Downloading and setting up gcnode systemd service…" bash -c "
   set -Eeuo pipefail
 
   # === Variables ===
-  UNIT_NAME="gcnode.service"
-  SYSTEMD_DIR="/etc/systemd/system"
-  UNIT_PATH="${SYSTEMD_DIR}/${UNIT_NAME}"
-  WORKDIR="/var/lib/greencloud"
-  LOG_FILE="${WORKDIR}/gcnode.log"
-  LOGROTATE_RULE="/etc/logrotate.d/greencloud"
+  UNIT_NAME='gcnode.service'
+  SYSTEMD_DIR='/etc/systemd/system'
+  UNIT_PATH=\"\${SYSTEMD_DIR}/\${UNIT_NAME}\"
+  WORKDIR='/var/lib/greencloud'
+  LOG_FILE=\"\${WORKDIR}/gcnode.log\"
+  LOGROTATE_RULE='/etc/logrotate.d/greencloud'
 
   # === Fetch unit file ===
-  wget -O "${UNIT_NAME}" "https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/gcnode.service"
-  mv "${UNIT_NAME}" "${UNIT_PATH}"
+  wget -O \"\${UNIT_NAME}\" 'https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/gcnode.service'
+  mv \"\${UNIT_NAME}\" \"\${UNIT_PATH}\"
 
   # === Prepare log directory and file ===
-  mkdir -p "${WORKDIR}"
-  touch "${LOG_FILE}"
-  chown root:root "${LOG_FILE}"
-  chmod 0644 "${LOG_FILE}"
+  mkdir -p \"\${WORKDIR}\"
+  touch \"\${LOG_FILE}\"
+  chown root:root \"\${LOG_FILE}\"
+  chmod 0644 \"\${LOG_FILE}\"
 
   # === Ensure unit logs to file (append mode) ===
-  # Insert/replace StandardOutput/StandardError inside the [Service] section
-  tmp_unit="$(mktemp)"
-
-  awk -v logfile="${LOG_FILE}" '
+  # Drop any existing StandardOutput/StandardError in [Service], then add ours
+  tmp_unit=\"\$(mktemp)\"
+  awk -v logfile=\"\${LOG_FILE}\" '
     BEGIN { in_service=0 }
+    /^\[Service\]$/ { in_service=1; print; print \"StandardOutput=append:\" logfile; print \"StandardError=append:\" logfile; next }
+    /^\[/ && !/^\[Service\]$/ { in_service=0 }
     {
-      if ($0 ~ /^\[Service\]/) { in_service=1 }
-      else if ($0 ~ /^\[/ && $0 !~ /^\[Service\]/) { in_service=0 }
-
-      # Drop existing StandardOutput/StandardError lines; we will re-add
-      if (in_service && ($1 ~ /^StandardOutput=/ || $1 ~ /^StandardError=/)) { next }
+      if (in_service && (\$0 ~ /^StandardOutput=/ || \$0 ~ /^StandardError=/)) next
       print
     }
-  ' "${UNIT_PATH}" > "${tmp_unit}"
-
-  # Add the append directives immediately after the [Service] header
-  sed -i "/^\[Service\]/a StandardOutput=append:${LOG_FILE}\nStandardError=append:${LOG_FILE}" "${tmp_unit}"
-
-  # Replace original unit atomically
-  install -m 0644 "${tmp_unit}" "${UNIT_PATH}"
-  rm -f "${tmp_unit}"
+  ' \"\${UNIT_PATH}\" > \"\${tmp_unit}\"
+  install -m 0644 \"\${tmp_unit}\" \"\${UNIT_PATH}\"
+  rm -f \"\${tmp_unit}\"
 
   # === Logrotate: daily, keep only 1 day ===
-  cat > "${LOGROTATE_RULE}" <<EOF
-${LOG_FILE} {
+  cat > \"\${LOGROTATE_RULE}\" <<EOF
+\${LOG_FILE} {
     daily
     rotate 1
     missingok
@@ -177,15 +168,13 @@ ${LOG_FILE} {
     copytruncate
 }
 EOF
-  chmod 0644 "${LOGROTATE_RULE}"
+  chmod 0644 \"\${LOGROTATE_RULE}\"
 
   # === Reload systemd and enable/start service ===
   systemctl daemon-reload
   systemctl enable gcnode
   systemctl restart gcnode
+"
 
-  # === Optional: force a first rotation test (comment out if not needed) ===
-  # logrotate -f "${LOGROTATE_RULE}"
-'
 
 echo -e "\n${YELLOW}🎉 All $((step - 1)) install steps completed successfully!${NC}"
