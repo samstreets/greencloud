@@ -1,3 +1,4 @@
+
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
@@ -51,3 +52,4 @@ else
   echo "gccli node add --external --id $NODE_ID --description \"$NODE_NAME\""
   exit 1
 fi
+
