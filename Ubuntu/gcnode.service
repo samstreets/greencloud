@@ -9,9 +9,5 @@ Restart=always
 User=root
 WorkingDirectory=/var/lib/greencloud
 
-# Send logs directly to a file
-StandardOutput=append:/var/lib/greencloud/gcnode.log
-StandardError=append:/var/lib/greencloud/gcnode.log
-
 [Install]
 WantedBy=multi-user.target
