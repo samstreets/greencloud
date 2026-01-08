@@ -51,19 +51,21 @@ pct start "$VMID"
 echo "[INFO] Waiting for container boot..."
 sleep 6
 
-# ========= Run setup script =========
-echo "[INFO] Running setup_node.sh inside container..."
+# ========= Run your setup and wait for it to finish =========
+echo "[INFO] Running setup_node.sh (this will block until it completes)..."
+pct exec "$VMID" -- bash -lc '
+  set -euo pipefail
+  wget -qO- https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/setup_node.sh | bash -s --
+'
+echo "[INFO] setup_node.sh completed successfully."
 
-
-pct exec "$VMID" -- bash -lc \
-  "wget -qO- https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/setup_node.sh | bash"
-  
-# ========= Place configure script =========
-echo "[INFO] Adding configure_node.sh...
-
-pct exec "$VMID" -- bash -lc \
-  "wget -qO /root/configure_node.sh https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/configure_node.sh && chmod +x /root/configure_node.sh"
-
+# ========= Place configure_node.sh into /root (executable) =========
+echo "[INFO] Placing configure_node.sh into /root (executable)..."
+pct exec "$VMID" -- bash -lc '
+  set -euo pipefail
+  wget -qO /root/configure_node.sh https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/configure_node.sh
+  chmod +x /root/configure_node.sh
+'
 # ========= Slim down image =========
 pct exec "$VMID" -- bash -lc \
   "apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*"
