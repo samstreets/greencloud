@@ -123,7 +123,7 @@ echo -e "${GREEN}✔ GreenCloud node and CLI installed for $ARCH${NC}"
 run_step "Downloading and setting up gcnode systemd service…" bash -c '
   set -Eeuo pipefail
 
-  wget https://raw.githubusercontent.com/samstreets/greencloud/main/gcnode.service
+  wget https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/gcnode.service
   mv "gcnode.service" /etc/systemd/system/gcnode.service
   systemctl daemon-reload
   systemctl enable gcnode
