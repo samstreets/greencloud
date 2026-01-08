@@ -69,7 +69,7 @@ run_step "Configuring containerd…" bash -c '
   mkdir -p /etc/containerd
   command -v containerd >/dev/null
   containerd config default | tee /etc/containerd/config.toml >/dev/null
-  # Ensure CNI binaries are in expected path
+
   mkdir -p /opt/cni/bin
   if [ -d /usr/lib/cni ]; then
     ln -sf /usr/lib/cni/* /opt/cni/bin/ || true
@@ -78,8 +78,6 @@ run_step "Configuring containerd…" bash -c '
   fi
   systemctl enable --now containerd
 '
-
-
 
 step_progress "Detecting CPU architecture…"
 ARCH="$(uname -m)"
@@ -100,7 +98,6 @@ case "$ARCH" in
     ;;
 esac
 
-# Export so the subshell sees them
 export GCNODE_URL GCCLI_URL
 
 run_step "Downloading GreenCloud Node and CLI…" bash -c '
@@ -117,13 +114,11 @@ run_step "Downloading GreenCloud Node and CLI…" bash -c '
   mv gccli /usr/bin/gccli
 '
 
-
 echo -e "${GREEN}✔ GreenCloud node and CLI installed for $ARCH${NC}"
 
 run_step "Downloading and setting up gcnode systemd service…" bash -c "
   set -Eeuo pipefail
 
-  # === Variables ===
   UNIT_NAME='gcnode.service'
   SYSTEMD_DIR='/etc/systemd/system'
   UNIT_PATH=\"\${SYSTEMD_DIR}/\${UNIT_NAME}\"
@@ -131,18 +126,14 @@ run_step "Downloading and setting up gcnode systemd service…" bash -c "
   LOG_FILE=\"\${WORKDIR}/gcnode.log\"
   LOGROTATE_RULE='/etc/logrotate.d/greencloud'
 
-  # === Fetch unit file ===
   wget -O \"\${UNIT_NAME}\" 'https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/gcnode.service'
   mv \"\${UNIT_NAME}\" \"\${UNIT_PATH}\"
 
-  # === Prepare log directory and file ===
   mkdir -p \"\${WORKDIR}\"
   touch \"\${LOG_FILE}\"
   chown root:root \"\${LOG_FILE}\"
   chmod 0644 \"\${LOG_FILE}\"
 
-  # === Ensure unit logs to file (append mode) ===
-  # Drop any existing StandardOutput/StandardError in [Service], then add ours
   tmp_unit=\"\$(mktemp)\"
   awk -v logfile=\"\${LOG_FILE}\" '
     BEGIN { in_service=0 }
@@ -156,7 +147,6 @@ run_step "Downloading and setting up gcnode systemd service…" bash -c "
   install -m 0644 \"\${tmp_unit}\" \"\${UNIT_PATH}\"
   rm -f \"\${tmp_unit}\"
 
-  # === Logrotate: daily, keep only 1 day ===
   cat > \"\${LOGROTATE_RULE}\" <<EOF
 \${LOG_FILE} {
     daily
@@ -170,11 +160,9 @@ run_step "Downloading and setting up gcnode systemd service…" bash -c "
 EOF
   chmod 0644 \"\${LOGROTATE_RULE}\"
 
-  # === Reload systemd and enable/start service ===
   systemctl daemon-reload
   systemctl enable gcnode
   systemctl restart gcnode
 "
 
-
-echo -e "\n${YELLOW}🎉 All $((step - 1)) install steps completed successfully!${NC}"
+echo -e \"\n${YELLOW}🎉 All $((step - 1)) install steps completed successfully!${NC}\"
