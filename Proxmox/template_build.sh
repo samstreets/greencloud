@@ -54,11 +54,12 @@ sleep 6
 # ========= Run setup script =========
 echo "[INFO] Running setup_node.sh inside container..."
 
-pct exec "$VMID" -- bash -lc \
-  "bash <(wget -qO- https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/setup_node.sh)"
 
+pct exec "$VMID" -- bash -lc \
+  "wget -qO- https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/setup_node.sh | bash"
+  
 # ========= Place configure script =========
-echo "[INFO] Adding configure_node.sh..."
+echo "[INFO] Adding configure_node.sh...
 
 pct exec "$VMID" -- bash -lc \
   "wget -qO /root/configure_node.sh https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/configure_node.sh && chmod +x /root/configure_node.sh"
