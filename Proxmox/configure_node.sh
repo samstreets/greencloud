@@ -1,4 +1,3 @@
-
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
@@ -33,7 +32,7 @@ gccli logout -q >/dev/null 2>&1 || true
 echo -ne "\n${CYAN}Please enter your GreenCloud API key (input hidden): ${NC}"
 read -rs API_KEY
 echo
-if ! gccli login -k "$API_KEY" >/dev/null 2>&1; then
+if ! gccli login -k "$API_KEY"  >/dev/null 2>&1; then
   echo -e "${YELLOW}Login failed. Please check your API key.${NC}"
   exit 1
 fi
@@ -41,12 +40,13 @@ fi
 echo -ne "\n${CYAN}Please enter what you would like to name the node: ${NC}"
 read -r NODE_NAME
 
+
 echo -e "\n${CYAN}Starting gcnode and extracting Node ID…${NC}"
 systemctl start gcnode
 
 LOG_FILE="/var/lib/greencloud/gcnode.log"
 
-# Wait for log file to appear
+# Wait for log file to appear (in case systemd creates it slightly later)
 attempts=0
 max_attempts=10
 while [ ! -f "$LOG_FILE" ] && [ "$attempts" -lt "$max_attempts" ]; do
