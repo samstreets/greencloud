@@ -11,6 +11,22 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
+# Spinner that takes a PID and waits on it
+spin() {
+  local pid="${1:-}"
+  local delay=0.1
+  local spinstr='|/-\'
+  [ -z "$pid" ] && return 1
+  while kill -0 "$pid" 2>/dev/null; do
+    local temp=${spinstr#?}
+    printf " [%c]  " "$spinstr"
+    spinstr=$temp${spinstr%"$temp"}
+    sleep "$delay"
+    printf "\b\b\b\b\b\b"
+  done
+  printf "    \b\b\b\b"
+}
+
 # --- Authentication & Node registration ---
 gccli logout -q >/dev/null 2>&1 || true
 
@@ -52,4 +68,5 @@ else
   echo "gccli node add --external --id $NODE_ID --description \"$NODE_NAME\""
   exit 1
 fi
+
 
