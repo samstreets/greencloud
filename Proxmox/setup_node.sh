@@ -103,10 +103,10 @@ esac
 run_step "Downloading GreenCloud Node and CLI…" bash -c '
   set -Eeuo pipefail
   mkdir -p /var/lib/greencloud
-  wget "$GCNODE_URL" -O gcnode
+  wget "'"$GCNODE_URL"'" -O gcnode
   chmod +x "gcnode"
   mv "gcnode" /var/lib/greencloud/gcnode
-  wget "$GCCLI_URL" -O gccli
+  wget "'"$GCCLI_URL"'" -O gccli
   mv gccli* gccli
   chmod +x "gccli"
   mv "gccli" /usr/local/bin/gccli
