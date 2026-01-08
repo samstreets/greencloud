@@ -145,6 +145,7 @@ run_step "Downloading and setting up gcnode systemd service…" bash -c '
   # === Ensure unit logs to file (append mode) ===
   # Insert/replace StandardOutput/StandardError inside the [Service] section
   tmp_unit="$(mktemp)"
+
   awk -v logfile="${LOG_FILE}" '
     BEGIN { in_service=0 }
     {
@@ -153,6 +154,38 @@ run_step "Downloading and setting up gcnode systemd service…" bash -c '
 
       # Drop existing StandardOutput/StandardError lines; we will re-add
       if (in_service && ($1 ~ /^StandardOutput=/ || $1 ~ /^StandardError=/)) { next }
+      print
+    }
+  ' "${UNIT_PATH}" > "${tmp_unit}"
 
+  # Add the append directives immediately after the [Service] header
+  sed -i "/^\[Service\]/a StandardOutput=append:${LOG_FILE}\nStandardError=append:${LOG_FILE}" "${tmp_unit}"
+
+  # Replace original unit atomically
+  install -m 0644 "${tmp_unit}" "${UNIT_PATH}"
+  rm -f "${tmp_unit}"
+
+  # === Logrotate: daily, keep only 1 day ===
+  cat > "${LOGROTATE_RULE}" <<EOF
+${LOG_FILE} {
+    daily
+    rotate 1
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+}
+EOF
+  chmod 0644 "${LOGROTATE_RULE}"
+
+  # === Reload systemd and enable/start service ===
+  systemctl daemon-reload
+  systemctl enable gcnode
+  systemctl restart gcnode
+
+  # === Optional: force a first rotation test (comment out if not needed) ===
+  # logrotate -f "${LOGROTATE_RULE}"
+'
 
 echo -e "\n${YELLOW}🎉 All $((step - 1)) install steps completed successfully!${NC}"
