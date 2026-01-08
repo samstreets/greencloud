@@ -1,6 +1,6 @@
 
 #!/usr/bin/env bash
-set -Eeuo pipefail\r
+set -Eeuo pipefail
 
 # --- Error reporting ---
 trap 'echo -e "\n\033[1;31m✖ Error on line $LINENO. Aborting.\033[0m" >&2' ERR
@@ -93,6 +93,7 @@ else
   echo "gccli node add --external --id $NODE_ID --description \"$NODE_NAME\""
   exit 1
 fi
+
 
 
 
