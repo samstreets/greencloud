@@ -1,0 +1,13 @@
+go to local (prox)
+down to ct templates
+downlaod from url - https://repo.emeraldcloud.co.uk/wp-content/Deployment/greencloud.tar.zst
+create ct in top right
+untick unprivleged container
+set hostname and password
+select greencloud.tar.zst from templates
+select defaults
+network set to dhcp
+and finish
+start the conatiner
+on the host, enter the conatiner - pct enter <conatinerid>
+in root, run configure_node.sh
