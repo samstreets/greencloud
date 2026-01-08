@@ -120,13 +120,39 @@ run_step "Downloading GreenCloud Node and CLI…" bash -c '
 
 echo -e "${GREEN}✔ GreenCloud node and CLI installed for $ARCH${NC}"
 
+
 run_step "Downloading and setting up gcnode systemd service…" bash -c '
   set -Eeuo pipefail
 
-  wget https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/gcnode.service
-  mv "gcnode.service" /etc/systemd/system/gcnode.service
-  systemctl daemon-reload
-  systemctl enable gcnode
-'
+  # === Variables ===
+  UNIT_NAME="gcnode.service"
+  SYSTEMD_DIR="/etc/systemd/system"
+  UNIT_PATH="${SYSTEMD_DIR}/${UNIT_NAME}"
+  WORKDIR="/var/lib/greencloud"
+  LOG_FILE="${WORKDIR}/gcnode.log"
+  LOGROTATE_RULE="/etc/logrotate.d/greencloud"
+
+  # === Fetch unit file ===
+  wget -O "${UNIT_NAME}" "https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/gcnode.service"
+  mv "${UNIT_NAME}" "${UNIT_PATH}"
+
+  # === Prepare log directory and file ===
+  mkdir -p "${WORKDIR}"
+  touch "${LOG_FILE}"
+  chown root:root "${LOG_FILE}"
+  chmod 0644 "${LOG_FILE}"
+
+  # === Ensure unit logs to file (append mode) ===
+  # Insert/replace StandardOutput/StandardError inside the [Service] section
+  tmp_unit="$(mktemp)"
+  awk -v logfile="${LOG_FILE}" '
+    BEGIN { in_service=0 }
+    {
+      if ($0 ~ /^\[Service\]/) { in_service=1 }
+      else if ($0 ~ /^\[/ && $0 !~ /^\[Service\]/) { in_service=0 }
+
+      # Drop existing StandardOutput/StandardError lines; we will re-add
+      if (in_service && ($1 ~ /^StandardOutput=/ || $1 ~ /^StandardError=/)) { next }
+
 
 echo -e "\n${YELLOW}🎉 All $((step - 1)) install steps completed successfully!${NC}"
