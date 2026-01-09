@@ -113,7 +113,31 @@ safe_exec 'chmod +x /root/configure_node.sh'
 
 # ========= Slim down image =========
 
-safe_exec 'apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*'
+
+echo "[INFO] Cleaning container filesystem..."
+
+safe_exec '
+  apt-get clean
+
+  # Safe apt list cleanup
+  if [ -d /var/lib/apt/lists ]; then
+      find /var/lib/apt/lists -mindepth 1 -delete || true
+  fi
+
+  # /var/tmp cleanup
+  if [ -d /var/tmp ]; then
+      find /var/tmp -mindepth 1 -delete || true
+  fi
+
+  # Safe /tmp cleanup avoiding Proxmox OVL mounts
+  if [ -d /tmp ]; then
+      find /tmp -mindepth 1 \
+        -not -path "/tmp/ovl" \
+        -not -path "/tmp/ovl/*" \
+        -delete || true
+  fi
+'
+
 
 # ========= Shutdown container safely =========
 echo "[INFO] Shutting down container..."
