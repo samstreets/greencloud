@@ -43,7 +43,8 @@ echo -ne "\n${CYAN}Please enter what you would like to name the node: ${NC}"
 read -r NODE_NAME
 
 echo -e "\n${CYAN}Starting gcnode and extracting Node ID…${NC}"
-systemctl start gcnode
+rm /var/lib/greencloud/gcnode.log
+systemctl restart gcnode
 
 LOG_FILE="/var/lib/greencloud/gcnode.log"
 
@@ -93,3 +94,4 @@ else
   exit 1
 
 fi
+
