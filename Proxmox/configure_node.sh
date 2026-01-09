@@ -37,7 +37,7 @@ read -r NODE_NAME
 echo -e "\n${CYAN}Starting gcnode and extracting Node ID&${NC}"
 rm /var/lib/greencloud/gcnode.log
 systemctl restart gcnode
-sleep 10
+sleep 5
 LOG_FILE="/var/lib/greencloud/gcnode.log"
 # Wait for log file to appear (in case systemd creates it slightly later)
 attempts=0
