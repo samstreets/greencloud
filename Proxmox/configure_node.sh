@@ -1,4 +1,5 @@
-# !/usr/bin/env bash
+
+#!/usr/bin/env bash
 set -E -e -u
 set -o pipefail
 
@@ -9,22 +10,23 @@ trap 'echo -e "\n\033[1;31m✖ Error on line $LINENO. Aborting.\033[0m" >&2' ERR
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # Spinner that takes a PID and waits on it
 spin() {
   local pid="${1:-}"
   local delay=0.1
-  local spinstr='|/-\'
+  local chars='|/-\'
+  local i=0
+
   [ -z "$pid" ] && return 1
   while kill -0 "$pid" 2>/dev/null; do
-    local temp=${spinstr#?}
-    printf " [%c]  " "$spinstr"
-    spinstr=$temp${spinstr%"$temp"}
+    # Print rotating char
+    printf "\r[%c] " "${chars:i++%${#chars}:1}"
     sleep "$delay"
-    printf "\b\b\b\b\b\b"
   done
-  printf "    \b\b\b\b"
+  printf "\r    \r"
 }
 
 # --- Authentication & Node registration ---
@@ -33,14 +35,13 @@ gccli logout -q >/dev/null 2>&1 || true
 echo -ne "\n${CYAN}Please enter your GreenCloud API key (input hidden): ${NC}"
 read -rs API_KEY
 echo
-if ! gccli login -k "$API_KEY"  >/dev/null 2>&1; then
+if ! gccli login -k "$API_KEY" >/dev/null 2>&1; then
   echo -e "${YELLOW}Login failed. Please check your API key.${NC}"
   exit 1
 fi
 
 echo -ne "\n${CYAN}Please enter what you would like to name the node: ${NC}"
 read -r NODE_NAME
-
 
 echo -e "\n${CYAN}Starting gcnode and extracting Node ID…${NC}"
 systemctl start gcnode
@@ -70,7 +71,6 @@ sleep 2
 
 while [ -z "$NODE_ID" ] && [ "$attempts" -lt "$max_attempts" ]; do
   NODE_ID="$(sed -n 's/.*ID → \([a-f0-9-]\+\).*/\1/p' "$LOG_FILE" | tail -1)"
-
   if [ -z "$NODE_ID" ]; then
     echo -e "${YELLOW}Waiting for Node ID... (${attempts}/${max_attempts})${NC}"
     sleep 2
