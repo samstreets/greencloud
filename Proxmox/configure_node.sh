@@ -43,7 +43,7 @@ attempts=0
 max_attempts=10
 while [ ! -f "$LOG_FILE" ] && [ "$attempts" -lt "$max_attempts" ]; do
   echo -e "${YELLOW}Waiting for gcnode log to appear... (${attempts}/${max_attempts})${NC}"
-  sleep 1
+  sleep 5
   attempts=$((attempts+1))
 done
 if [ ! -f "$LOG_FILE" ]; then
