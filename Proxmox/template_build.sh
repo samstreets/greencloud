@@ -45,7 +45,32 @@ pct create "$VMID" "$BASE_TEMPLATE" \
   -rootfs "$ROOTFS_STORAGE:$ROOTFS_GB" \
   -net0 name=eth0,bridge=vmbr0,ip=dhcp \
   -unprivileged 0 \
-  -features nesting=1
+  -features nesting=1,keyctl=1
+
+# ========= Apply low-level LXC options required by your workload =========
+echo "[INFO] Applying LXC config hardening exceptions for container runtimes..."
+
+# Optional but recommended for fuse-based tools
+pct set "$VMID" -features fuse=1 || true
+
+# Allow all kernel capabilities (drop none)
+pct set "$VMID" -lxc 'lxc.cap.drop='
+
+# Disable AppArmor confinement
+pct set "$VMID" -lxc 'lxc.apparmor.profile=unconfined'
+
+# Allow all device access (required by containerd/docker-in-LXC patterns)
+pct set "$VMID" -lxc 'lxc.cgroup2.devices.allow=a'
+
+# Allow sys and proc mounts
+pct set "$VMID" -lxc 'lxc.mount.auto=proc:rw sys:rw'
+
+# Allow fuse device (bind-mount)
+pct set "$VMID" -lxc 'lxc.mount.entry=/dev/fuse dev/fuse none bind,create=file 0 0'
+
+# Show resulting config (debug)
+echo "[INFO] /etc/pve/lxc/$VMID.conf after updates:"
+cat "/etc/pve/lxc/${VMID}.conf" || true
 
 pct start "$VMID"
 echo "[INFO] Waiting for container boot..."
@@ -66,6 +91,7 @@ pct exec "$VMID" -- bash -lc '
   wget -qO /root/configure_node.sh https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/configure_node.sh
   chmod +x /root/configure_node.sh
 '
+
 # ========= Slim down image =========
 pct exec "$VMID" -- bash -lc \
   "apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*"
