@@ -1,8 +1,6 @@
 
 #!/bin/bash
 set -euo pipefail
-
-# Enable fail for multi-stage pipelines
 set -o pipefail
 
 # ========= Settings (override via environment) =========
@@ -22,7 +20,33 @@ APP_NAME=greencloud
 VERSION_TAG=${VERSION_TAG:-1.0}
 ARCH=amd64
 
+# ========= Functions =========
+
+wait_for_ct() {
+  echo "[INFO] Waiting for container $VMID to be fully ready..."
+
+  for i in {1..30}; do
+    if pct exec "$VMID" -- ping -c1 1.1.1.1 >/dev/null 2>&1; then
+      echo "[INFO] Networking online."
+      return 0
+    fi
+    sleep 2
+  done
+
+  echo "[ERROR] Container networking failed to come online!"
+  exit 1
+}
+
+safe_exec() {
+  if ! pct exec "$VMID" -- bash -lc "$1"; then
+    echo "[ERROR] Command failed inside CT:"
+    echo "        $1"
+    exit 1
+  fi
+}
+
 # ========= Ensure Debian 13 LXC template exists =========
+
 echo "[INFO] Checking for Debian 13 LXC template..."
 
 if ! ls /var/lib/vz/template/cache/debian-13-standard_13.*_amd64.tar.zst >/dev/null 2>&1; then
@@ -35,6 +59,7 @@ BASE_TEMPLATE=$(ls /var/lib/vz/template/cache/debian-13-standard_13.*_amd64.tar.
 echo "[INFO] Using base template: $BASE_TEMPLATE"
 
 # ========= Create privileged container =========
+
 echo "[INFO] Creating LXC container $VMID..."
 
 pct create "$VMID" "$BASE_TEMPLATE" \
@@ -45,10 +70,10 @@ pct create "$VMID" "$BASE_TEMPLATE" \
   -rootfs "$ROOTFS_STORAGE:$ROOTFS_GB" \
   -net0 name=eth0,bridge=vmbr0,ip=dhcp \
   -unprivileged 0 \
-  -features nesting=1,keyctl=1
+  -features nesting=1,keyctl=1,fuse=1
 
+# ========= Apply low-level LXC config options =========
 
-# ========= Apply low-level LXC options (direct config file modification) =========
 echo "[INFO] Applying LXC config hardening exceptions..."
 
 CONF_FILE="/etc/pve/lxc/${VMID}.conf"
@@ -66,33 +91,29 @@ CONF_FILE="/etc/pve/lxc/${VMID}.conf"
 echo "[INFO] Updated $CONF_FILE:"
 cat "$CONF_FILE"
 
-# Show resulting config (debug)
-echo "[INFO] /etc/pve/lxc/$VMID.conf after updates:"
-cat "/etc/pve/lxc/${VMID}.conf" || true
+# ========= Start the container =========
 
 pct start "$VMID"
-echo "[INFO] Waiting for container boot..."
-sleep 6
+wait_for_ct
 
-# ========= Run your setup and wait for it to finish =========
+# ========= Execute setup_node.sh =========
+
 echo "[INFO] Running setup_node.sh (this will block until it completes)..."
-pct exec "$VMID" -- bash -lc '
-  set -euo pipefail
-  wget -qO- https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/setup_node.sh | bash -s --
-'
+
+safe_exec 'wget -qO- https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/setup_node.sh | bash -s --'
+
 echo "[INFO] setup_node.sh completed successfully."
 
-# ========= Place configure_node.sh into /root (executable) =========
-echo "[INFO] Placing configure_node.sh into /root (executable)..."
-pct exec "$VMID" -- bash -lc '
-  set -euo pipefail
-  wget -qO /root/configure_node.sh https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/configure_node.sh
-  chmod +x /root/configure_node.sh
-'
+# ========= Place configure_node.sh =========
+
+echo "[INFO] Placing configure_node.sh into /root..."
+
+safe_exec 'wget -qO /root/configure_node.sh https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/configure_node.sh'
+safe_exec 'chmod +x /root/configure_node.sh'
 
 # ========= Slim down image =========
-pct exec "$VMID" -- bash -lc \
-  "apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*"
+
+safe_exec 'apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*'
 
 # ========= Shutdown container safely =========
 echo "[INFO] Shutting down container..."
@@ -110,10 +131,12 @@ echo "[INFO] Converting CT into Proxmox template..."
 pct template "$VMID"
 
 # ========= vzdump backup =========
+
 echo "[INFO] Creating vzdump backup in storage '$BACKUP_STORAGE'..."
 vzdump "$VMID" --node "$NODE" --mode stop --compress zstd --storage "$BACKUP_STORAGE"
 
-# ========= Export CT template archive =========
+# ========= Export CT filesystem as template tarball =========
+
 echo "[INFO] Exporting CT template to '$VZTMPL_STORAGE'..."
 
 VZTMPL_PATH=$(pvesm path "$VZTMPL_STORAGE":vztmpl)
@@ -128,18 +151,17 @@ pct start "$VMID"
 sleep 3
 
 ROOTFS_HOST_PATH="/var/lib/lxc/${VMID}/rootfs"
-if [[ ! -d "$ROOTFS_HOST_PATH" ]]; then
-  echo "[ERROR] Rootfs path missing: $ROOTFS_HOST_PATH"
-  echo "[ERROR] Skipping archive export"
-else
+
+if [[ -d "$ROOTFS_HOST_PATH" ]]; then
   echo "[INFO] Packing rootfs to $EXPORT_PATH..."
   tar --numeric-owner --xattrs --xattrs-include='*' \
       --one-file-system \
       --exclude=proc/* --exclude=sys/* --exclude=dev/* \
       --exclude=run/* --exclude=mnt/* --exclude=media/* \
       -C "$ROOTFS_HOST_PATH" -cf - . | zstd -19 -T0 > "$EXPORT_PATH"
-
   echo "[INFO] Template archive created: $EXPORT_PATH"
+else
+  echo "[ERROR] Rootfs missing: $ROOTFS_HOST_PATH"
 fi
 
 # ========= Re-template =========
@@ -150,9 +172,8 @@ pct template "$VMID"
 echo
 echo "========================================"
 echo "[SUCCESS] Template Build Completed"
-echo "CT $VMID is a cloneable Proxmox Template."
-echo "Backup stored in:    $BACKUP_STORAGE (Backups menu)"
-echo "Template archive in: $VZTMPL_STORAGE (CT Templates → $EXPORT_NAME)"
+echo "CT $VMID is ready for cloning."
+echo "Backup stored in:    $BACKUP_STORAGE"
+echo "Template archive in: $VZTMPL_STORAGE ($EXPORT_NAME)"
 echo "========================================"
 echo
-``
