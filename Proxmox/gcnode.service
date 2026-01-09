@@ -4,13 +4,36 @@ Description=GreenCloud Node Service
 After=network.target
 
 [Service]
-ExecStartPre=/usr/sbin/sysctl -w net.ipv4.ping_group_range="0 2147483647"
-ExecStart=/var/lib/greencloud/gcnode
-Restart=always
 User=root
 WorkingDirectory=/var/lib/greencloud
 
-# Send logs directly to a file
+# --- System preparation commands ---
+ExecStartPre=/usr/sbin/sysctl -w net.ipv4.ping_group_range="0 2147483647"
+
+# Create overlay directories
+ExecStartPre=/usr/bin/mkdir -p /tmp/ovl/lower
+ExecStartPre=/usr/bin/mkdir -p /tmp/ovl/upper
+ExecStartPre=/usr/bin/mkdir -p /tmp/ovl/work
+ExecStartPre=/usr/bin/mkdir -p /tmp/ovl/merged
+
+# Populate lowerdir
+ExecStartPre=/usr/bin/cp -a /bin /tmp/ovl/lower/
+
+# Mount overlay
+ExecStartPre=/usr/bin/mount -t overlay overlay -o lowerdir=/tmp/ovl/lower,upperdir=/tmp/ovl/upper,workdir=/tmp/ovl/work /tmp/ovl/merged
+
+# Setup runtime dir
+ExecStartPre=/usr/bin/mkdir -p /run/user/0
+ExecStartPre=/usr/bin/chmod 700 /run/user/0
+
+# Provide XDG runtime var to the service
+Environment=XDG_RUNTIME_DIR=/run/user/0
+
+# --- Actual service ---
+ExecStart=/var/lib/greencloud/gcnode
+Restart=always
+
+# Logging
 StandardOutput=append:/var/lib/greencloud/gcnode.log
 StandardError=append:/var/lib/greencloud/gcnode.log
 
