@@ -56,7 +56,7 @@ attempts=0
 max_attempts=10
 sleep 2
 while [ -z "$NODE_ID" ] && [ "$attempts" -lt "$max_attempts" ]; do
-  NODE_ID="$(sed -n 's/.*ID � \([a-f0-9-]\+\).*/\1/p' "$LOG_FILE" | tail -1)"
+  NODE_ID="$(sed -n 's/.*ID → \([a-f0-9-]\+\).*/\1/p' "$LOG_FILE" | tail -1)"
   if [ -z "$NODE_ID" ]; then
     echo -e "${YELLOW}Waiting for Node ID... (${attempts}/${max_attempts})${NC}"
     sleep 2
