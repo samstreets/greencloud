@@ -1,6 +1,5 @@
-
-#!/usr/bin/env bash
-set -E -e -u
+#!/bin/bash
+set -euo pipefail
 set -o pipefail
 
 # --- Error reporting ---
@@ -92,4 +91,5 @@ else
   echo -e "${YELLOW}Failed to add node via gccli. Please retry manually:${NC}"
   echo "gccli node add --external --id $NODE_ID --description \"$NODE_NAME\""
   exit 1
+
 fi
