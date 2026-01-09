@@ -112,33 +112,32 @@ safe_exec 'wget -qO /root/configure_node.sh https://raw.githubusercontent.com/sa
 safe_exec 'chmod +x /root/configure_node.sh'
 
 # ========= Slim down image =========
-
-
 echo "[INFO] Cleaning container filesystem..."
 
 safe_exec '
-  apt-get clean
+  set -e
 
-  # Safe apt list cleanup
+  # Clean apt cache safely
+  apt-get clean || true
+
+  # Clean apt lists (but keep the directory)
   if [ -d /var/lib/apt/lists ]; then
-      find /var/lib/apt/lists -mindepth 1 -delete || true
+      find /var/lib/apt/lists -mindepth 1 -type f -delete || true
   fi
 
-  # /var/tmp cleanup
+  # Clean /var/tmp
   if [ -d /var/tmp ]; then
       find /var/tmp -mindepth 1 -delete || true
   fi
 
-  # Safe /tmp cleanup avoiding Proxmox OVL mounts
+  # CLEAN /tmp SAFELY — do NOT touch overlay mounts
   if [ -d /tmp ]; then
       find /tmp -mindepth 1 \
-        -not -path "/tmp/ovl" \
-        -not -path "/tmp/ovl/*" \
-        -delete || true
+         -not -path "/tmp/ovl" \
+         -not -path "/tmp/ovl/*" \
+         -delete || true
   fi
 '
-
-
 # ========= Shutdown container safely =========
 echo "[INFO] Shutting down container..."
 pct shutdown "$VMID" || true
