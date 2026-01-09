@@ -158,11 +158,23 @@ pct template "$VMID"
 echo "[INFO] Creating vzdump backup in storage '$BACKUP_STORAGE'..."
 vzdump "$VMID" --node "$NODE" --mode stop --compress zstd --storage "$BACKUP_STORAGE"
 
-# ========= Export CT filesystem as template tarball =========
 
+# ========= Export CT template archive =========
 echo "[INFO] Exporting CT template to '$VZTMPL_STORAGE'..."
 
-VZTMPL_PATH=$(pvesm path "$VZTMPL_STORAGE":vztmpl)
+get_storage_path() {
+  local storage_name="$1"
+  pvesm status --verbose | awk -v s="$storage_name" 'NR>1 && $1==s {print $2}'
+}
+
+STORAGE_PATH=$(get_storage_path "$VZTMPL_STORAGE")
+if [[ -z "$STORAGE_PATH" ]]; then
+  echo "[ERROR] Could not resolve path for storage '$VZTMPL_STORAGE'"
+  echo "[HINT] Ensure the storage exists and supports 'vztmpl' content (Datacenter -> Storage)."
+  exit 1
+fi
+
+VZTMPL_PATH="${STORAGE_PATH%/}/template/cache"
 mkdir -p "$VZTMPL_PATH"
 
 EXPORT_NAME="${APP_NAME}-${OS_NAME}_${VERSION_TAG}_${ARCH}.tar.zst"
@@ -174,18 +186,20 @@ pct start "$VMID"
 sleep 3
 
 ROOTFS_HOST_PATH="/var/lib/lxc/${VMID}/rootfs"
-
-if [[ -d "$ROOTFS_HOST_PATH" ]]; then
+if [[ ! -d "$ROOTFS_HOST_PATH" ]]; then
+  echo "[ERROR] Rootfs path missing: $ROOTFS_HOST_PATH"
+  echo "[ERROR] Skipping archive export"
+else
   echo "[INFO] Packing rootfs to $EXPORT_PATH..."
   tar --numeric-owner --xattrs --xattrs-include='*' \
       --one-file-system \
       --exclude=proc/* --exclude=sys/* --exclude=dev/* \
       --exclude=run/* --exclude=mnt/* --exclude=media/* \
       -C "$ROOTFS_HOST_PATH" -cf - . | zstd -19 -T0 > "$EXPORT_PATH"
+
   echo "[INFO] Template archive created: $EXPORT_PATH"
-else
-  echo "[ERROR] Rootfs missing: $ROOTFS_HOST_PATH"
 fi
+
 
 # ========= Re-template =========
 echo "[INFO] Re-marking CT as template..."
