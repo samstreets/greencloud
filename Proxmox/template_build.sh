@@ -159,26 +159,41 @@ echo "[INFO] Creating vzdump backup in storage '$BACKUP_STORAGE'..."
 vzdump "$VMID" --node "$NODE" --mode stop --compress zstd --storage "$BACKUP_STORAGE"
 
 
+
 # ========= Export CT template archive =========
 echo "[INFO] Exporting CT template to '$VZTMPL_STORAGE'..."
 
-get_storage_path() {
+# Resolve the base path for the storage via pvesm config
+resolve_storage_path() {
   local storage_name="$1"
-  pvesm status --verbose | awk -v s="$storage_name" 'NR>1 && $1==s {print $2}'
+  # pvesm config prints lines like:
+  # type: dir
+  # path: /var/lib/vz
+  # content: iso,vztmpl,backup,rootdir,snippets
+  pvesm config "$storage_name" 2>/dev/null | awk -F': ' '/^path: / {print $2}'
 }
 
-STORAGE_PATH=$(get_storage_path "$VZTMPL_STORAGE")
+STORAGE_PATH="$(resolve_storage_path "$VZTMPL_STORAGE")"
+
+# Fallback for default 'local' storage (dir type)
+if [[ -z "$STORAGE_PATH" && "$VZTMPL_STORAGE" == "local" ]]; then
+  STORAGE_PATH="/var/lib/vz"
+fi
+
 if [[ -z "$STORAGE_PATH" ]]; then
-  echo "[ERROR] Could not resolve path for storage '$VZTMPL_STORAGE'"
-  echo "[HINT] Ensure the storage exists and supports 'vztmpl' content (Datacenter -> Storage)."
+  echo "[ERROR] Could not resolve a filesystem path for storage '$VZTMPL_STORAGE'."
+  echo "[HINT] Check Datacenter -> Storage -> $VZTMPL_STORAGE, ensure it is type 'dir' and has 'CT templates (vztmpl)' content enabled."
   exit 1
 fi
 
+# CT templates live under template/cache for dir storages
 VZTMPL_PATH="${STORAGE_PATH%/}/template/cache"
 mkdir -p "$VZTMPL_PATH"
 
 EXPORT_NAME="${APP_NAME}-${OS_NAME}_${VERSION_TAG}_${ARCH}.tar.zst"
 EXPORT_PATH="${VZTMPL_PATH%/}/$EXPORT_NAME"
+
+echo "[INFO] Target template path: $EXPORT_PATH"
 
 echo "[INFO] Temporarily converting back to standard CT for filesystem access..."
 pct untemplate "$VMID"
@@ -199,7 +214,6 @@ else
 
   echo "[INFO] Template archive created: $EXPORT_PATH"
 fi
-
 
 # ========= Re-template =========
 echo "[INFO] Re-marking CT as template..."
