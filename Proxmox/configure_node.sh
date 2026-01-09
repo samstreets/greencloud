@@ -1,5 +1,6 @@
-#!/usr/bin/env bash
-set -Eeuo pipefail
+# !/usr/bin/env bash
+set -E -e -u
+set -o pipefail
 
 # --- Error reporting ---
 trap 'echo -e "\n\033[1;31m✖ Error on line $LINENO. Aborting.\033[0m" >&2' ERR
