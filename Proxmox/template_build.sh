@@ -47,26 +47,24 @@ pct create "$VMID" "$BASE_TEMPLATE" \
   -unprivileged 0 \
   -features nesting=1,keyctl=1
 
-# ========= Apply low-level LXC options required by your workload =========
-echo "[INFO] Applying LXC config hardening exceptions for container runtimes..."
 
-# Optional but recommended for fuse-based tools
-pct set "$VMID" -features fuse=1 || true
+# ========= Apply low-level LXC options (direct config file modification) =========
+echo "[INFO] Applying LXC config hardening exceptions..."
 
-# Allow all kernel capabilities (drop none)
-pct set "$VMID" -lxc 'lxc.cap.drop='
+CONF_FILE="/etc/pve/lxc/${VMID}.conf"
 
-# Disable AppArmor confinement
-pct set "$VMID" -lxc 'lxc.apparmor.profile=unconfined'
+{
+  echo ""
+  echo "# ==== GreenCloud runtime permissions ===="
+  echo "lxc.cap.drop:"
+  echo "lxc.apparmor.profile: unconfined"
+  echo "lxc.cgroup2.devices.allow: a"
+  echo "lxc.mount.auto: proc:rw sys:rw"
+  echo "lxc.mount.entry: /dev/fuse dev/fuse none bind,create=file 0 0"
+} >> "$CONF_FILE"
 
-# Allow all device access (required by containerd/docker-in-LXC patterns)
-pct set "$VMID" -lxc 'lxc.cgroup2.devices.allow=a'
-
-# Allow sys and proc mounts
-pct set "$VMID" -lxc 'lxc.mount.auto=proc:rw sys:rw'
-
-# Allow fuse device (bind-mount)
-pct set "$VMID" -lxc 'lxc.mount.entry=/dev/fuse dev/fuse none bind,create=file 0 0'
+echo "[INFO] Updated $CONF_FILE:"
+cat "$CONF_FILE"
 
 # Show resulting config (debug)
 echo "[INFO] /etc/pve/lxc/$VMID.conf after updates:"
