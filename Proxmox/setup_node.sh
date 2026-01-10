@@ -162,7 +162,6 @@ EOF
 
   systemctl daemon-reload
   systemctl enable gcnode
-  systemctl restart gcnode
 "
 
 echo -e \"\n${YELLOW}🎉 All $((step - 1)) install steps completed successfully!${NC}\"
