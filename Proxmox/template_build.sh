@@ -49,13 +49,13 @@ safe_exec() {
 
 echo "[INFO] Checking for Debian 13 LXC template..."
 
-if ! ls /var/lib/vz/template/cache/debian-13-standard_13.*_amd64.tar.zst >/dev/null 2>&1; then
+if ! ls /var/lib/vz/template/cache/debian-13-standard_13.1-2_amd64.tar.zst >/dev/null 2>&1; then
   echo "[INFO] Downloading Debian 13 template..."
   pveam update
-  pveam download local debian-13-standard_13.*_amd64.tar.zst
+  pveam download local debian-13-standard_13.1-2_amd64.tar.zst
 fi
 
-BASE_TEMPLATE=$(ls /var/lib/vz/template/cache/debian-13-standard_13.*_amd64.tar.zst | head -n 1)
+BASE_TEMPLATE=$(ls /var/lib/vz/template/cache/debian-13-standard_13.1-2_amd64.tar.zst | head -n 1)
 echo "[INFO] Using base template: $BASE_TEMPLATE"
 
 # ========= Create privileged container =========
