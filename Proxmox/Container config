@@ -1,3 +1,4 @@
+/etc/pve/lxc/<container id>.conf
 # ==== GreenCloud runtime permissions ====
 lxc.cap.drop:
 lxc.apparmor.profile: unconfined
