@@ -1,0 +1,21 @@
+loggin to proxmox
+go to local (prox)
+down to ct templates
+downlaod from template from url or upload
+create ct in top right
+untick unprivleged container
+set hostname and password
+select greencloud.tar.zst from templates
+select defaults
+network set to dhcp
+and finish
+ edit container config /etc/pve/lxc/<container id>.conf
+  # ==== GreenCloud runtime permissions ====
+  lxc.cap.drop:
+  lxc.apparmor.profile: unconfined
+  lxc.cgroup2.devices.allow: a
+  lxc.mount.auto: proc:rw sys:rw
+  lxc.mount.entry: /dev/fuse dev/fuse none bind,create=file 0 0
+start the conatiner
+on the host, enter the conatiner - pct enter <conatinerid>
+in root, run configure_node.sh
