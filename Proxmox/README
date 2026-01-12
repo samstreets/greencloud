@@ -1,19 +1,6 @@
-# GreenCloud on Proxmox – Wiki
+# GreenCloud on Proxmox
 
-Welcome to the **GreenCloud Proxmox Wiki**. This documentation explains how to deploy GreenCloud using LXC containers on Proxmox, either manually or via the automated template builder.
-
----
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Requirements](#requirements)
-3. [Deployment Methods](#deployment-methods)
-   - [Manual Container Setup](#manual-container-setup)
-   - [Template Builder (Recommended)](#template-builder-recommended)
-4. [Post-Installation Configuration](#post-installation-configuration)
-5. [Permissions & Security Notes](#permissions--security-notes)
-6. [Troubleshooting](#troubleshooting)
+Welcome to the **GreenCloud Proxmox**. This documentation explains how to deploy GreenCloud using LXC containers on Proxmox, either manually or via the automated template builder.
 
 ---
 
@@ -41,7 +28,7 @@ You may deploy GreenCloud using one of the following methods:
 
 ---
 
-## Manual Container Setup
+## Container Creation
 
 ### Step 1: Download the Container Template
 
@@ -109,17 +96,16 @@ pct enter <CONTAINER_ID>
 Inside the container (as `root`), run:
 
 ```
-./configure_node.sh
+bash configure_node.sh
 ```
 
 Follow the prompts to complete GreenCloud node configuration.
 
 ---
 
-## Template Builder (Recommended)
+## Template Builder
 
 The template builder automatically:
-- Detects the latest Debian version via `pveam`
 - Builds a GreenCloud-ready LXC template
 - Outputs a reusable `.tar.zst` template
 
@@ -156,46 +142,9 @@ The template will now appear in:
 **Local (pve) → CT Templates**
 
 ---
+### Follow the steps in container creation
 
-## Permissions & Security Notes
 
-- Containers **must be privileged**
-- AppArmor profile must be set to `unconfined`
-- `/dev/fuse` access is required
-- These permissions are necessary for GreenCloud runtime features
-
----
-
-## Troubleshooting
-
-### Container Fails to Start
-
-- Verify the container is **not unprivileged**
-- Confirm the config file changes were saved
-
-### Runtime Errors
-
-Check logs inside the container:
-
-```
-journalctl -xe
-```
-
-### Missing Template
-
-- Ensure the template exists in:
-  
-  `/var/lib/vz/template/cache`
-
----
-
-## Next Steps
-
-- Integrate GreenCloud with your management platform
-- Automate deployments using the template builder
-- Monitor container performance from Proxmox
-
----
 
 **You’re now ready to run GreenCloud on Proxmox.**
 
