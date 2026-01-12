@@ -10,15 +10,6 @@ GreenCloud runs inside a **privileged Proxmox LXC container** with specific kern
 
 ---
 
-## Requirements
-
-- Proxmox VE (7.x or newer recommended)
-- Root access to the Proxmox host
-- Internet access from the host
-- Privileged LXC containers enabled
-
----
-
 ## Deployment Methods
 
 You may deploy GreenCloud using one of the following methods:
