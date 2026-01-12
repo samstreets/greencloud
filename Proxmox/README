@@ -9,7 +9,7 @@ select greencloud.tar.zst from templates
 select defaults
 network set to dhcp
 and finish
- edit container config /etc/pve/lxc/<container id>.conf
+edit container config /etc/pve/lxc/<container id>.conf
   # ==== GreenCloud runtime permissions ====
   lxc.cap.drop:
   lxc.apparmor.profile: unconfined
@@ -19,3 +19,11 @@ and finish
 start the conatiner
 on the host, enter the conatiner - pct enter <conatinerid>
 in root, run configure_node.sh
+
+
+Alternitivly use the template builder
+check the latest update of debian using pveam available and update the script
+wget https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/template_build.sh
+bash template_build.sh
+it will put the template in /var/lib/vz/dump
+move it to /var/lib/vz/template/cache and it will be available when you create the container
