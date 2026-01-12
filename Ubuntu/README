@@ -1,0 +1,8 @@
+use wget to downlaod https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Ubuntu/setup_greencloud.sh
+run bash setup_greencloud.sh
+follow the prompts through
+
+to uninstall
+use wget to downlaod https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Ubuntu/remove_greencloud.sh
+run bash remove_greencloud.sh
+follow the prompts through
