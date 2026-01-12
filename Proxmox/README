@@ -1,29 +1,94 @@
-loggin to proxmox
-go to local (prox)
-down to ct templates
-downlaod from template from url or upload
-create ct in top right
-untick unprivleged container
-set hostname and password
-select greencloud.tar.zst from templates
-select defaults
-network set to dhcp
-and finish
-edit container config /etc/pve/lxc/<container id>.conf
-  # ==== GreenCloud runtime permissions ====
-  lxc.cap.drop:
-  lxc.apparmor.profile: unconfined
-  lxc.cgroup2.devices.allow: a
-  lxc.mount.auto: proc:rw sys:rw
-  lxc.mount.entry: /dev/fuse dev/fuse none bind,create=file 0 0
-start the conatiner
-on the host, enter the conatiner - pct enter <conatinerid>
-in root, run configure_node.sh
+⚡ Quick Start
+Method 1: Use the Prebuilt Template
+🔽 Step 1 — Download the Template
+Inside the Proxmox UI:
+
+Select local (proxmox) storage.
+Go to CT Templates.
+Either:
+
+Click Download from URL, or
+Upload greencloud.tar.zst manually.
 
 
-Alternitivly use the template builder
-check the latest update of debian using pveam available and update the script
+Confirm it appears in the template list.
+
+
+📦 Step 2 — Create the Container
+
+Click Create CT.
+Uncheck:
+
+Unprivileged container
+
+
+Set:
+
+Hostname
+Root password
+
+
+Choose template: greencloud.tar.zst
+Leave defaults unless otherwise required.
+Network: set to DHCP
+Finish creation.
+
+
+🛠 Step 3 — Set Runtime Permissions
+Edit the container config:
+nano /etc/pve/lxc/<container-id>.conf
+
+Add:
+# ==== GreenCloud runtime permissions ====
+lxc.cap.drop:
+lxc.apparmor.profile: unconfined
+lxc.cgroup2.devices.allow: a
+lxc.mount.auto: proc:rw sys:rw
+lxc.mount.entry: /dev/fuse dev/fuse none bind,create=file 0 0
+
+
+🚀 Step 4 — Start & Configure
+Start the container, then:
+pct enter <container-id>
+
+Inside:
+configure_node.sh
+
+Your GreenCloud node is now configured.
+
+Method 2: Build Your Own Template
+Ideal for developers or users wanting full reproducibility.
+
+🔍 Step 1 — Check Available Debian Templates
+Run:
+pveam available
+
+Make sure your template builder script references the latest Debian version.
+
+🏗 Step 2 — Download & Run the Template Builder
 wget https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/template_build.sh
 bash template_build.sh
-it will put the template in /var/lib/vz/dump
-move it to /var/lib/vz/template/cache and it will be available when you create the container
+
+The generated image will appear in:
+/var/lib/vz/dump
+
+Move it into the template cache:
+mv /var/lib/vz/dump/*.tar.zst /var/lib/vz/template/cache/
+
+You can now create a container using this template (follow Method 1).
+
+🛠 Runtime Configuration Details
+GreenCloud requires specific LXC privileges for runtime operations, including:
+
+Full device access
+FUSE passthrough
+Relaxed AppArmor confinement
+proc/sys RW mounts
+
+These are applied in the container config:
+lxc.cap.drop:
+lxc.apparmor.profile: unconfined
+lxc.cgroup2.devices.allow: a
+lxc.mount.auto: proc:rw sys:rw
+lxc.mount.entry: /dev/fuse dev/fuse none bind,create=file 0 0
+
