@@ -126,7 +126,7 @@ run_step "Downloading and setting up gcnode systemd service…" bash -c "
   LOG_FILE=\"\${WORKDIR}/gcnode.log\"
   LOGROTATE_RULE='/etc/logrotate.d/greencloud'
 
-  wget -O \"\${UNIT_NAME}\" 'https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/gcnode.service'
+  wget -O \"\${UNIT_NAME}\" 'https://raw.githubusercontent.com/greencloudcomputing/node-installer/refs/heads/main/Proxmox/gcnode.service'
   mv \"\${UNIT_NAME}\" \"\${UNIT_PATH}\"
 
   mkdir -p \"\${WORKDIR}\"
