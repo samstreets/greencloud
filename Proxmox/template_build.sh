@@ -100,7 +100,7 @@ wait_for_ct
 
 echo "[INFO] Running setup_node.sh (this will block until it completes)..."
 
-safe_exec 'wget -qO- https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/setup_node.sh | bash -s --'
+safe_exec 'wget -qO- https://raw.githubusercontent.com/greencloudcomputing/node-installer/refs/heads/main/Proxmox/setup_node.sh | bash -s --'
 
 echo "[INFO] setup_node.sh completed successfully."
 
@@ -108,7 +108,7 @@ echo "[INFO] setup_node.sh completed successfully."
 
 echo "[INFO] Placing configure_node.sh into /root..."
 
-safe_exec 'wget -qO /root/configure_node.sh https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/configure_node.sh'
+safe_exec 'wget -qO /root/configure_node.sh https://raw.githubusercontent.com/greencloudcomputing/node-installer/refs/heads/main/Proxmox/configure_node.sh'
 safe_exec 'chmod +x /root/configure_node.sh'
 
 # ========= Slim down image =========
