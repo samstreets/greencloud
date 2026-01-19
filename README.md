@@ -12,8 +12,8 @@ Green Cloud is a software solution designed to simplify and optimize your cloud 
 
 You can install Green Cloud by following the instructions provided in the official guides:
 
-- [Ubuntu/Debian](https://github.com/samstreets/greencloud/blob/main/Ubuntu/ubuntu_debain.md)  
-- [Proxmox](https://github.com/samstreets/greencloud/blob/main/Proxmox/Proxmox.md)
+- [Ubuntu/Debian](https://github.com/greencloudcomputing/node-installer/blob/main/Ubuntu/ubuntu_debain.md)  
+- [Proxmox](https://github.com/greencloudcomputing/node-installer/blob/main/Proxmox/Proxmox.md)
 
 > Make sure to follow the instructions corresponding to your operating system.
 
