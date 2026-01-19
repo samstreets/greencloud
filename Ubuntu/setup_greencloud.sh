@@ -147,7 +147,7 @@ run_step "Downloading and setting up gcnode systemd service…" bash -c '
   set -Eeuo pipefail
   tmpdir="$(mktemp -d)"
   trap "rm -rf \"$tmpdir\"" RETURN
-  curl -fsSL https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Ubuntu/gcnode.service -o "$tmpdir/gcnode.service"
+  curl -fsSL https://raw.githubusercontent.com/greencloudcomputing/node-installer/refs/heads/main/Ubuntu/gcnode.service -o "$tmpdir/gcnode.service"
   mv "$tmpdir/gcnode.service" /etc/systemd/system/gcnode.service
   systemctl daemon-reload
   systemctl enable gcnode
