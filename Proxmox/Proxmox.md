@@ -103,7 +103,7 @@ The template builder automatically:
 ### Step 1: Download the Script
 
 ```
-wget https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Proxmox/template_build.sh
+wget https://raw.githubusercontent.com/greencloudcomputing/node-installer/refs/heads/main/Proxmox/template_build.sh
 ```
 
 ---
