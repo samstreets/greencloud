@@ -21,7 +21,7 @@ GreenCloud provides automated installation and removal scripts for Debian-based 
 Use `wget` to download the latest GreenCloud setup script:
 
 ```
-wget https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Ubuntu/setup_greencloud.sh
+wget https://raw.githubusercontent.com/greencloudcomputing/node-installer/refs/heads/main/Ubuntu/setup_greencloud.sh
 ```
 
 ---
@@ -51,7 +51,7 @@ Follow the on-screen prompts until the installation completes.
 ### Step 1: Download the Removal Script
 
 ```
-wget https://raw.githubusercontent.com/samstreets/greencloud/refs/heads/main/Ubuntu/remove_greencloud.sh
+wget https://raw.githubusercontent.com/greencloudcomputing/node-installer/refs/heads/main/Ubuntu/remove_greencloud.sh
 ```
 
 ---
