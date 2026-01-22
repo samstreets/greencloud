@@ -1,247 +1,282 @@
 
-#!/bin/sh
-# greencloud-cp-init-script.sh
-# IGEL OS Custom Partition init/stop for GreenCloud with containerd, runc & CNI
-# Runs entirely from /custom and does NOT modify the read-only base OS.
+#!/usr/bin/env bash
+set -euo pipefail
 
-set -eu
+# --- Error reporting ---
+trap 'echo -e "\n\033[1;31m✖ Error on line $LINENO. Aborting.\033[0m" >&2' ERR
 
-CP_NAME="greencloud"
-MP="$(get custom_partition.mountpoint 2>/dev/null || echo /custom)"
-CP_DIR="${MP}/${CP_NAME}"
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
 
-# Layout inside CP
-BIN_DIR="${CP_DIR}/bin"                  # gccli, gcnode, ctr, containerd, runc
-RUNTIME_DIR="${CP_DIR}/runtime"          # containerd state/root, sockets, etc.
-CNI_DIR="${CP_DIR}/cni"                  # CNI binaries + conf
-LOG_DIR="${CP_DIR}/log"
-VAR_DIR="${CP_DIR}/var"                  # PID/env cache
-
-CONTAINERD_ROOT="${RUNTIME_DIR}/root"
-CONTAINERD_STATE="${RUNTIME_DIR}/state"
-CONTAINERD_SOCK="${CONTAINERD_STATE}/containerd.sock"
-CONTAINERD_CFG="${CP_DIR}/config/containerd.toml"
-PID_FILE="${VAR_DIR}/gcnode.pid"
-PID_CTRD="${VAR_DIR}/containerd.pid"
-LOG_FILE="${LOG_DIR}/gcnode.log"
-LOG_CTRD="${LOG_DIR}/containerd.log"
-ENV_FILE="${VAR_DIR}/env"
-
-PATH="${BIN_DIR}:${PATH}"
-
-# ===== Parameters from UMS "Partition parameters" (recommended) =====
-API_KEY="${API_KEY:-}"              # GreenCloud API key (UMS -> Partition parameters)
-NODE_NAME="${NODE_NAME:-}"          # Friendly node name (UMS param)
-# Optional version pins (override defaults below)
-CONTAINERD_VER="${CONTAINERD_VER:-2.2.1}"   # GitHub release tag (e.g. 2.2.1)
-RUNC_VER="${RUNC_VER:-1.4.0}"               # GitHub release tag (e.g. 1.4.0)
-CNI_VER="${CNI_VER:-1.9.0}"                 # GitHub release tag (e.g. 1.9.0)
-
-# ===== Detect arch and set upstream assets =====
-ARCH="$(uname -m)"
-case "$ARCH" in
-  x86_64|amd64)
-    CTD_TGZ="containerd-${CONTAINERD_VER}-linux-amd64.tar.gz"
-    RUNC_BIN="runc.amd64"
-    CNI_TGZ="cni-plugins-linux-amd64-v${CNI_VER}.tgz"
-    ;;
-  aarch64|arm64)
-    CTD_TGZ="containerd-${CONTAINERD_VER}-linux-arm64.tar.gz"
-    RUNC_BIN="runc.arm64"
-    CNI_TGZ="cni-plugins-linux-arm64-v${CNI_VER}.tgz"
-    ;;
-  *)
-    echo "Unsupported arch: $ARCH" >&2
-    exit 1
-    ;;
-esac
-
-# Upstream URLs (mirror these to UMS filetransfer for airgapped/ICG endpoints)
-URL_CONTAINERD="https://github.com/containerd/containerd/releases/download/v${CONTAINERD_VER}/${CTD_TGZ}"
-URL_RUNC="https://github.com/opencontainers/runc/releases/download/v${RUNC_VER}/${RUNC_BIN}"
-URL_CNI="https://github.com/containernetworking/plugins/releases/download/v${CNI_VER}/${CNI_TGZ}"
-
-# GreenCloud binaries
-case "$ARCH" in
-  x86_64|amd64)
-    URL_GCNODE="https://dl.greencloudcomputing.io/gcnode/main/gcnode-main-linux-amd64"
-    URL_GCCLI="https://dl.greencloudcomputing.io/gccli/main/gccli-main-linux-amd64"
-    ;;
-  aarch64|arm64)
-    URL_GCNODE="https://dl.greencloudcomputing.io/gcnode/main/gcnode-main-linux-arm64"
-    URL_GCCLI="https://dl.greencloudcomputing.io/gccli/main/gccli-main-linux-arm64"
-    ;;
-esac
-
-fetch() {
-  # $1 URL, $2 OUT
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$1" -o "$2"
-  elif command -v wget >/dev/null 2>&1; then
-    wget -q "$1" -O "$2"
-  else
-    echo "Neither curl nor wget available on IGEL image." >&2
-    return 1
-  fi
-}
-
-wait_for_ctr() {
-  # wait until containerd answers to ctr, or timeout ~30s
-  for i in $(seq 1 30); do
-    if CTR_CMD="ctr --address ${CONTAINERD_SOCK} version"; ${CTR_CMD} >/dev/null 2>&1; then
-      return 0
-    fi
-    sleep 1
+# Spinner that takes a PID and waits on it
+spin() {
+  local pid="${1:-}"
+  local delay=0.1
+  local spinstr='|/-\'
+  [ -z "$pid" ] && return 1
+  while kill -0 "$pid" 2>/dev/null; do
+    local temp=${spinstr#?}
+    printf " [%c]  " "$spinstr"
+    spinstr=$temp${spinstr%"$temp"}
+    sleep "$delay"
+    printf "\b\b\b\b\b\b"
   done
-  return 1
+  printf "    \b\b\b\b"
 }
 
-link_into_rootfs() {
-  # Safely expose CNI path expected by tools: /opt/cni/bin → CP CNI dir
-  # IGEL CPs commonly symlink CP content into /usr,/opt as needed.  [4](https://kb.igel.com/en/igel-os/11.10/creating-the-initialization-script-1)
-  if [ ! -e /opt/cni/bin ]; then
-    mkdir -p /opt/cni 2>/dev/null || true
-    ln -sf "${CNI_DIR}/bin" /opt/cni/bin 2>/dev/null || true
-  fi
+# Step counter
+step=1
+total=9
+step_progress() {
+  echo -e "${CYAN}Step $step of $total: $1${NC}"
+  ((step++))
 }
 
-start_services() {
-  mkdir -p "${BIN_DIR}" "${LOG_DIR}" "${VAR_DIR}" \
-           "${RUNTIME_DIR}" "${CONTAINERD_ROOT}" "${CONTAINERD_STATE}" \
-           "${CP_DIR}/config" "${CNI_DIR}/bin" "${CNI_DIR}/conf"
-
-  # Record environment for troubleshooting
-  {
-    echo "START: $(date -Iseconds)"
-    echo "ARCH=$ARCH"
-    echo "API_KEY_SET=$([ -n "$API_KEY" ] && echo yes || echo no)"
-    echo "NODE_NAME=${NODE_NAME:-}"
-    echo "CTRD=${CONTAINERD_VER} RUNC=${RUNC_VER} CNI=${CNI_VER}"
-  } > "${ENV_FILE}"
-
-  TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
-
-  # --- Containerd ---
-  if [ ! -x "${BIN_DIR}/containerd" ] || [ ! -x "${BIN_DIR}/ctr" ]; then
-    fetch "${URL_CONTAINERD}" "${TMP}/containerd.tgz"
-    tar -xzf "${TMP}/containerd.tgz" -C "${TMP}/"
-    # tarball layout: ./bin/{containerd,ctr,...}
-    install -m755 "${TMP}/bin/"* "${BIN_DIR}/"
-  fi
-
-  # --- runc ---
-  if [ ! -x "${BIN_DIR}/runc" ]; then
-    fetch "${URL_RUNC}" "${TMP}/runc"
-    install -m755 "${TMP}/runc" "${BIN_DIR}/runc"
-  fi
-
-  # --- CNI plugins ---
-  if [ ! -x "${CNI_DIR}/bin/bridge" ]; then
-    fetch "${URL_CNI}" "${TMP}/cni.tgz"
-    tar -xzf "${TMP}/cni.tgz" -C "${CNI_DIR}/bin"
-  fi
-
-  # Expose CNI as /opt/cni/bin for tools that expect the standard path.
-  link_into_rootfs
-
-  # Minimal containerd config referencing our local runc & CNI
-  if [ ! -f "${CONTAINERD_CFG}" ]; then
-    cat > "${CONTAINERD_CFG}" <<EOF
-version = 2
-root = "${CONTAINERD_ROOT}"
-state = "${CONTAINERD_STATE}"
-[grpc]
-  address = "${CONTAINERD_SOCK}"
-[plugins."io.containerd.grpc.v1.cri"]
-  sandbox_image = "registry.k8s.io/pause:3.9"
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-    runtime_type = "io.containerd.runc.v2"
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-      BinaryName = "${BIN_DIR}/runc"
-  [plugins."io.containerd.grpc.v1.cri".cni]
-    bin_dir = "${CNI_DIR}/bin"
-    conf_dir = "${CNI_DIR}/conf"
-EOF
-  fi
-
-  # Start containerd (no systemd on IGEL CP — run under nohup & PID file)
-  if [ -f "${PID_CTRD}" ] && kill -0 "$(cat "${PID_CTRD}")" 2>/dev/null; then
-    echo "containerd already running (PID $(cat "${PID_CTRD}"))"
+# Run a step with spinner and hard failure on non-zero exit
+run_step() {
+  local title="$1"
+  shift
+  step_progress "$title"
+  (
+    set -Eeuo pipefail
+    "$@"
+  ) >/dev/null 2>&1 &
+  local pid=$!
+  spin "$pid"
+  if wait "$pid"; then
+    echo -e "${GREEN}✔ ${title/…/} completed${NC}"
   else
-    nohup "${BIN_DIR}/containerd" --config "${CONTAINERD_CFG}" \
-      >> "${LOG_CTRD}" 2>&1 &
-    echo $! > "${PID_CTRD}"
-    sleep 1
-  fi
-
-  if ! wait_for_ctr; then
-    echo "ERROR: containerd failed to become ready" >&2
+    echo -e "${YELLOW}⚠ ${title/…/} failed${NC}"
     exit 1
   fi
-
-  # --- GreenCloud binaries ---
-  fetch "${URL_GCNODE}" "${TMP}/gcnode"; install -m755 "${TMP}/gcnode" "${BIN_DIR}/gcnode"
-  fetch "${URL_GCCLI}" "${TMP}/gccli";  install -m755 "${TMP}/gccli"  "${BIN_DIR}/gccli"
-
-  # GreenCloud login (optional but recommended)
-  if [ -n "${API_KEY}" ]; then
-    "${BIN_DIR}/gccli" logout >/dev/null 2>&1 || true
-    if ! "${BIN_DIR}/gccli" login -k "${API_KEY}" >/dev/null 2>&1; then
-      echo "WARN: gccli login failed — continuing" >&2
-    fi
-  fi
-
-  # Start gcnode (logs to CP)
-  if [ -f "${PID_FILE}" ] && kill -0 "$(cat "${PID_FILE}")" 2>/dev/null; then
-    echo "gcnode already running (PID $(cat "${PID_FILE}"))"
-  else
-    nohup "${BIN_DIR}/gcnode" >> "${LOG_FILE}" 2>&1 &
-    echo $! > "${PID_FILE}"
-    echo "gcnode started (PID $(cat "${PID_FILE}"))"
-  fi
-
-  # Auto-register node if we have both API_KEY & NODE_NAME
-  if [ -n "${API_KEY}" ] && [ -n "${NODE_NAME}" ]; then
-    NODE_ID=""
-    for i in $(seq 1 30); do
-      NODE_ID="$(sed -n 's#.*ID → \([a-f0-9-]\+\).*#\1#p' "${LOG_FILE}" | tail -n1 || true)"
-      [ -n "${NODE_ID}" ] && break
-      sleep 2
-    done
-    if [ -n "${NODE_ID}" ]; then
-      if "${BIN_DIR}/gccli" node add --external --id "${NODE_ID}" --description "${NODE_NAME}" >/dev/null 2>&1; then
-        echo "Registered Node ID ${NODE_ID} as '${NODE_NAME}'"
-      else
-        echo "WARN: Manual registration needed:"
-        echo "      ${BIN_DIR}/gccli node add --external --id ${NODE_ID} --description '${NODE_NAME}'"
-      fi
-    else
-      echo "WARN: Node ID not detected in ${LOG_FILE}"
-    fi
-  fi
 }
 
-stop_services() {
-  # Stop gcnode
-  if [ -f "${PID_FILE}" ]; then
-    PID="$(cat "${PID_FILE}" || true)"
-    [ -n "${PID}" ] && kill "${PID}" 2>/dev/null || true
-    sleep 1
-    [ -n "${PID}" ] && kill -9 "${PID}" 2>/dev/null || true
-    rm -f "${PID_FILE}"
-  fi
-  # Stop containerd
-  if [ -f "${PID_CTRD}" ]; then
-    CPID="$(cat "${PID_CTRD}" || true)"
-    [ -n "${CPID}" ] && kill "${CPID}" 2>/dev/null || true
-    sleep 1
-    [ -n "${CPID}" ] && kill -9 "${CPID}" 2>/dev/null || true
-    rm -f "${PID_CTRD}"
-  fi
+
+# =============================
+# Configurable versions
+# =============================
+CONTAINERD_VERSION="${CONTAINERD_VERSION:-1.7.20}"
+RUNC_VERSION="${RUNC_VERSION:-1.1.12}"
+CNI_VERSION="${CNI_VERSION:-1.5.1}"
+
+# =============================
+# Install/Runtime Paths (IGEL-friendly)
+# =============================
+BASE_DIR="/custom/container-runtime"
+BIN_DIR="$BASE_DIR/bin"
+ETC_DIR="$BASE_DIR/etc"
+SYSTEMD_DIR="$BASE_DIR/systemd"
+CNI_BIN_DIR="$BASE_DIR/cni/bin"
+CNI_CONF_DIR="$BASE_DIR/cni/conf"
+CONTAINERD_ROOT_DIR="$BASE_DIR/containerd-root"
+CONTAINERD_STATE_DIR="$BASE_DIR/containerd-state"
+
+# Optional symlink targets (if writable)
+USR_LOCAL_BIN="/usr/local/bin"
+OPT_CNI_BIN="/opt/cni/bin"
+
+# =============================
+# Detect architecture
+# =============================
+detect_arch() {
+  local uname_m
+  uname_m="$(uname -m)"
+  case "$uname_m" in
+    x86_64|amd64) echo "amd64" ;;
+    aarch64|arm64) echo "arm64" ;;
+    armv7l|armv7) echo "arm" ;;
+    *) echo "Unsupported architecture: $uname_m" >&2; exit 1 ;;
+  esac
+}
+ARCH="$(detect_arch)"
+
+# =============================
+# Ensure directories
+# =============================
+mkdir -p "$BIN_DIR" "$ETC_DIR" "$SYSTEMD_DIR" "$CNI_BIN_DIR" "$CNI_CONF_DIR" \
+         "$CONTAINERD_ROOT_DIR" "$CONTAINERD_STATE_DIR"
+
+# =============================
+# Helper: download file
+# =============================
+fetch() {
+  local url="$1" out="$2"
+  echo "Downloading: $url"
+  curl -fsSL --retry 3 --retry-delay 2 -o "$out" "$url"
 }
 
-case "${1:-}" in
-  init) start_services ;;
-  stop) stop_services  ;;
-  *) echo "Usage: $0 {init|stop}" >&2; exit 1 ;;
-esac
+# =============================
+# Download binaries
+# =============================
+
+# containerd
+CONTAINERD_TGZ="containerd-${CONTAINERD_VERSION}-linux-${ARCH}.tar.gz"
+CONTAINERD_URL="https://github.com/containerd/containerd/releases/download/v${CONTAINERD_VERSION}/${CONTAINERD_TGZ}"
+
+# runc
+RUNC_URL="https://github.com/opencontainers/runc/releases/download/v${RUNC_VERSION}/runc.${ARCH}"
+
+# CNI plugins
+CNI_TGZ="cni-plugins-linux-${ARCH}-v${CNI_VERSION}.tgz"
+CNI_URL="https://github.com/containernetworking/plugins/releases/download/v${CNI_VERSION}/${CNI_TGZ}"
+
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
+
+run_step "Downlaoding Containerd" fetch "$CONTAINERD_URL" "$TMP_DIR/$CONTAINERD_TGZ"
+run_step "Downlaoding Runc" fetch "$RUNC_URL" "$TMP_DIR/runc"
+run_step "Downlaoding Containerd Networking" fetch "$CNI_URL" "$TMP_DIR/$CNI_TGZ"
+
+# =============================
+# Install containerd + ctr + containerd-shim*
+# =============================
+run_step "Installing containerd..." bash -c '
+tar -xzf "$TMP_DIR/$CONTAINERD_TGZ" -C "$TMP_DIR"
+# Tar contains bin/{containerd,containerd-shim*,ctr}
+install -m 0755 "$TMP_DIR/bin/containerd" "$BIN_DIR/containerd"
+install -m 0755 "$TMP_DIR/bin/ctr" "$BIN_DIR/ctr"
+# Install all shims if present
+if compgen -G "$TMP_DIR/bin/containerd-shim*" > /dev/null; then
+  install -m 0755 "$TMP_DIR"/bin/containerd-shim* "$BIN_DIR/"
+fi
+'
+
+# =============================
+# Install runc
+# =============================
+run_step "Installing runc..." bash -c '
+install -m 0755 "$TMP_DIR/runc" "$BIN_DIR/runc"
+'
+# =============================
+# Install CNI plugins
+# =============================
+run_step "Installing CNI plugins..." bash -c '
+mkdir -p "$CNI_BIN_DIR"
+tar -xzf "$TMP_DIR/$CNI_TGZ" -C "$CNI_BIN_DIR"
+
+# Try to mirror CNI plugins to /opt/cni/bin if writable (helpful for tooling)
+if mkdir -p "$OPT_CNI_BIN" 2>/dev/null && [ -w "$OPT_CNI_BIN" ]; then
+  echo "Mirroring CNI plugins to $OPT_CNI_BIN..."
+  cp -f "$CNI_BIN_DIR"/* "$OPT_CNI_BIN"/
+fi
+
+# Try to symlink tools into /usr/local/bin for convenience
+if mkdir -p "$USR_LOCAL_BIN" 2>/dev/null && [ -w "$USR_LOCAL_BIN" ]; then
+  for b in containerd ctr runc; do
+    ln -sf "$BIN_DIR/$b" "$USR_LOCAL_BIN/$b"
+  done
+fi
+'
+# =============================
+# Generate containerd config
+# =============================
+run_step "Generating containerd config..." bash -c '
+mkdir -p "$ETC_DIR/containerd"
+# -- NOTE: We keep everything in /custom, and point containerd accordingly
+"$BIN_DIR/containerd" config default > "$ETC_DIR/containerd/config.toml"
+
+# Patch config.toml:
+# - Use systemd cgroups
+# - Point to persistent root & state
+# - Point CNI dirs to our /custom paths
+# - Enable CRI plugin if needed (default is true)
+sed -i \
+  -e 's#\(root = \).*#\1"'"$CONTAINERD_ROOT_DIR"'"#' \
+  -e 's#\(state = \).*#\1"'"$CONTAINERD_STATE_DIR"'"#' \
+  "$ETC_DIR/containerd/config.toml"
+
+# Ensure SystemdCgroup = true under [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+awk '
+  BEGIN {in_runc=0; in_opts=0}
+  /plugins\."io\.containerd\.grpc\.v1\.cri"\.containerd\.runtimes\.runc/ {in_runc=1}
+  in_runc && /^\[/ && $0 !~ /runtimes\.runc/ {in_runc=0}
+  in_runc && /\.options\]/ {in_opts=1}
+  in_opts && /^\[/ {in_opts=0}
+  {print}
+  in_opts && $0 ~ /{/ && !printed {print "            SystemdCgroup = true"; printed=1}
+' "$ETC_DIR/containerd/config.toml" > "$ETC_DIR/containerd/config.toml.tmp" && mv "$ETC_DIR/containerd/config.toml.tmp" "$ETC_DIR/containerd/config.toml"
+
+# CNI settings (add if missing)
+if ! grep -q '\[plugins."io.containerd.grpc.v1.cri".cni\]' "$ETC_DIR/containerd/config.toml"; then
+cat >> "$ETC_DIR/containerd/config.toml" <<'EOF'
+
+[plugins."io.containerd.grpc.v1.cri".cni]
+  bin_dir = ""
+  conf_dir = ""
+EOF
+fi
+
+# Set our custom CNI paths
+sed -i \
+  -e 's#\(bin_dir = \).*#\1"'"$CNI_BIN_DIR"'"#' \
+  -e 's#\(conf_dir = \).*#\1"'"$CNI_CONF_DIR"'"#' \
+  "$ETC_DIR/containerd/config.toml"
+
+# Minimal CNI bridge config if none exists
+if [ -z "$(ls -A "$CNI_CONF_DIR" 2>/dev/null || true)" ]; then
+cat > "$CNI_CONF_DIR/10-bridge.conf" <<'EOF'
+{
+  "cniVersion": "1.0.1",
+  "name": "igel0",
+  "type": "bridge",
+  "bridge": "cni0",
+  "isGateway": true,
+  "ipMasq": true,
+  "ipam": {
+    "type": "host-local",
+    "routes": [ { "dst": "0.0.0.0/0" } ],
+    "ranges": [ [ { "subnet": "10.88.0.0/16" } ] ]
+  }
+}
+EOF
+fi
+'
+# =============================
+# systemd unit for containerd
+# =============================
+CONTAINERD_SERVICE="$SYSTEMD_DIR/containerd.service"
+cat > "$CONTAINERD_SERVICE" <<EOF
+[Unit]
+Description=containerd container runtime
+Documentation=https://containerd.io
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+# Point containerd at our config and paths under /custom
+Environment=CONTAINERD_CONFIG=$ETC_DIR/containerd/config.toml
+ExecStart=$BIN_DIR/containerd --config \$CONTAINERD_CONFIG
+KillMode=process
+Delegate=yes
+OOMScoreAdjust=-999
+LimitNOFILE=1048576
+LimitNPROC=infinity
+LimitCORE=infinity
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+run_step "Linking and enabling containerd.service..." bash -c '
+systemctl daemon-reload
+# systemctl link lets us keep the unit outside /etc/systemd/system
+systemctl link "$CONTAINERD_SERVICE"
+systemctl enable containerd.service
+systemctl restart containerd.service
+'
+
+echo "Installation complete!"
+echo
+echo "Binaries:        $BIN_DIR (linked to $USR_LOCAL_BIN if possible)"
+echo "containerd root: $CONTAINERD_ROOT_DIR"
+echo "containerd state:$CONTAINERD_STATE_DIR"
+echo "CNI bin:         $CNI_BIN_DIR (mirrored to $OPT_CNI_BIN if possible)"
+echo "CNI conf:        $CNI_CONF_DIR"
+echo
+echo "Try:   $BIN_DIR/ctr version"
+echo "Check: systemctl status containerd --no-pager"
+``
