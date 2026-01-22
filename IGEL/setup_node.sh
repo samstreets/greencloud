@@ -267,8 +267,8 @@ set -Eeuo pipefail
   mv "$tmpdir/gcnode" /var/lib/greencloud/gcnode
   curl -fsSL "$GCCLI_URL" -o "$tmpdir/gccli"
   chmod +x "$tmpdir/gccli"
-  mv "$tmpdir/gccli" /usr/local/bin/gccli
-  set -Eeuo pipefail
+  mv "$tmpdir/gccli" mv "$tmpdir/gccli" /wfs/bin/gccli
+  export PATH="$PATH:/usr/local/bin:/wfs/bin"
   tmpdir="$(mktemp -d)"
   trap "rm -rf \"$tmpdir\"" RETURN
   curl -fsSL https://raw.githubusercontent.com/greencloudcomputing/node-installer/refs/heads/main/Ubuntu/gcnode.service -o "$tmpdir/gcnode.service"
