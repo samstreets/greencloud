@@ -57,7 +57,7 @@ wget https://raw.githubusercontent.com/greencloudcomputing/node-installer/refs/h
 ---
 
 ### Step 2: Run the Removal Script
-
+The uninstaller will need to be run as root or using sudo
 ```
 bash remove_greencloud.sh
 ```
