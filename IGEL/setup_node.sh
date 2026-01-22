@@ -241,17 +241,17 @@ SYSCTL_CONF="/etc/sysctl.d/99-ping-group.conf"
   
 case "$ARCH" in
   x86_64|amd64)
-    echo -e "x86_64 architecture detected${NC}"
+    echo -e "x86_64 architecture detected"
     GCNODE_URL="https://dl.greencloudcomputing.io/gcnode/main/gcnode-main-linux-amd64"
     GCCLI_URL="https://dl.greencloudcomputing.io/gccli/main/gccli-main-linux-amd64"
     ;;
   aarch64|arm64)
-    echo -e "✔ ARM64 architecture detected${NC}"
+    echo -e "✔ ARM64 architecture detected"
     GCNODE_URL="https://dl.greencloudcomputing.io/gcnode/main/gcnode-main-linux-arm64"
     GCCLI_URL="https://dl.greencloudcomputing.io/gccli/main/gccli-main-linux-arm64"
     ;;
   *)
-    echo -e "Unsupported architecture: $ARCH${NC}"
+    echo -e "Unsupported architecture: $ARCH"
     exit 1
     ;;
 esac
@@ -275,18 +275,18 @@ set -Eeuo pipefail
   # --- Authentication & Node registration ---
 gccli logout -q >/dev/null 2>&1 || true
 
-echo -ne "\nPlease enter your GreenCloud API key (input hidden): ${NC}"
+echo -ne "\nPlease enter your GreenCloud API key (input hidden):"
 read -rs API_KEY
 echo
 if ! gccli login -k "$API_KEY"  >/dev/null 2>&1; then
-  echo -e "Login failed. Please check your API key.${NC}"
+  echo -e "Login failed. Please check your API key."
   exit 1
 fi
 
-echo -ne "\nPlease enter what you would like to name the node: ${NC}"
+echo -ne "\nPlease enter what you would like to name the node:"
 read -r NODE_NAME
 
-echo -e "\nStarting gcnode and extracting Node ID…${NC}"
+echo -e "\nStarting gcnode and extracting Node ID…"
 systemctl start gcnode
 # Wait for Node ID in logs
 NODE_ID=""
@@ -296,20 +296,20 @@ sleep 2
 while [ -z "$NODE_ID" ] && [ "$attempts" -lt "$max_attempts" ]; do
   NODE_ID="$(journalctl -u gcnode --no-pager -n 200 | sed -n "s/.*ID → \([a-f0-9-]\+\).*/\1/p" | tail -1)"
   if [ -z "$NODE_ID" ]; then
-    echo -e "Waiting for Node ID... (${attempts}/${max_attempts})${NC}"
+    echo -e "Waiting for Node ID... (${attempts}/${max_attempts})"
     sleep 2
     attempts=$((attempts+1))
   fi
 done
 
 
-echo -e "✔ Captured Node ID: $NODE_ID${NC}"
+echo -e "✔ Captured Node ID: $NODE_ID"
 
-echo -e "\n${CYAN}Adding node to GreenCloud...${NC}"
+echo -e "\nAdding node to GreenCloud..."
 if gccli node add --external --id "$NODE_ID" --description "$NODE_NAME" >/dev/null 2>&1; then
-  echo -e "${GREEN}✔ Node added successfully!${NC}"
+  echo -e "✔ Node added successfully!"
 else
-  echo -e "${YELLOW}Failed to add node via gccli. Please retry manually:${NC}"
+  echo -e "Failed to add node via gccli. Please retry manually:"
   echo "gccli node add --external --id $NODE_ID --description \"$NODE_NAME\""
   exit 1
 fi
