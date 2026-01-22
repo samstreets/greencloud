@@ -27,7 +27,7 @@ wget https://raw.githubusercontent.com/greencloudcomputing/node-installer/refs/h
 ---
 
 ### Step 2: Run the Installer
-
+The installer will need to be run as root or using sudo
 ```
 bash setup_greencloud.sh
 ```
