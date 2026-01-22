@@ -261,10 +261,10 @@ set -Eeuo pipefail
   mkdir -p /var/lib/greencloud
   tmpdir="$(mktemp -d)"
   trap "rm -rf \"$tmpdir\"" RETURN
-  curl -fsSL "'"$GCNODE_URL"'" -o "$tmpdir/gcnode"
+  curl -fsSL "$GCNODE_URL" -o "$tmpdir/gcnode"
   chmod +x "$tmpdir/gcnode"
   mv "$tmpdir/gcnode" /var/lib/greencloud/gcnode
-  curl -fsSL "'"$GCCLI_URL"'" -o "$tmpdir/gccli"
+  curl -fsSL "$GCCLI_URL" -o "$tmpdir/gccli"
   chmod +x "$tmpdir/gccli"
   mv "$tmpdir/gccli" /usr/local/bin/gccli
   set -Eeuo pipefail
