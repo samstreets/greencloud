@@ -265,9 +265,10 @@ set -Eeuo pipefail
   curl -fsSL "$GCNODE_URL" -o "$tmpdir/gcnode"
   chmod +x "$tmpdir/gcnode"
   mv "$tmpdir/gcnode" /var/lib/greencloud/gcnode
+  mkdir -p /wfs/bin /usr/local/bin
   curl -fsSL "$GCCLI_URL" -o "$tmpdir/gccli"
   chmod +x "$tmpdir/gccli"
-  mv "$tmpdir/gccli" mv "$tmpdir/gccli" /wfs/bin/gccli
+  mv "$tmpdir/gccli" /wfs/bin/gccli
   export PATH="$PATH:/usr/local/bin:/wfs/bin"
   tmpdir="$(mktemp -d)"
   trap "rm -rf \"$tmpdir\"" RETURN
