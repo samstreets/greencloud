@@ -239,22 +239,24 @@ SYSCTL_CONF="/etc/sysctl.d/99-ping-group.conf"
   CURRENT=$(cat "$PROC_NODE")
   echo "Applied: net.ipv4.ping_group_range = $CURRENT"
   
+
+# Map architecture to standardized label
 case "$ARCH" in
-  x86_64|amd64)
-    echo -e "x86_64 architecture detected"
-    GCNODE_URL="https://dl.greencloudcomputing.io/gcnode/main/gcnode-main-linux-amd64"
-    GCCLI_URL="https://dl.greencloudcomputing.io/gccli/main/gccli-main-linux-amd64"
-    ;;
-  aarch64|arm64)
-    echo -e "✔ ARM64 architecture detected"
-    GCNODE_URL="https://dl.greencloudcomputing.io/gcnode/main/gcnode-main-linux-arm64"
-    GCCLI_URL="https://dl.greencloudcomputing.io/gccli/main/gccli-main-linux-arm64"
-    ;;
+  x86_64|amd64)  ARCH_LABEL="amd64" ;;
+  aarch64|arm64) ARCH_LABEL="arm64" ;;
   *)
-    echo -e "Unsupported architecture: $ARCH"
+    echo "✖ Unsupported architecture: $ARCH"
     exit 1
     ;;
 esac
+
+echo "✔ Architecture detected: $ARCH_LABEL"
+
+BASE_URL="https://dl.greencloudcomputing.io"
+
+GCNODE_URL="$BASE_URL/gcnode/main/gcnode-main-linux-$ARCH_LABEL"
+GCCLI_URL="$BASE_URL/gccli/main/gccli-main-linux-$ARCH_LABEL"
+
 set -Eeuo pipefail
   mkdir -p /var/lib/greencloud
   tmpdir="$(mktemp -d)"
