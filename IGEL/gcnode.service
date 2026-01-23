@@ -8,6 +8,7 @@ ExecStart=/var/lib/greencloud/gcnode
 Restart=always
 User=root
 WorkingDirectory=/var/lib/greencloud
+Environment="GC_HOSTNET=true"
 
 [Install]
 WantedBy=multi-user.target
