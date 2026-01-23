@@ -136,7 +136,7 @@ which runc || {
 case "$ARCH" in
   x86_64|amd64)
     echo -e "✔ x86_64 architecture detected"
-    GCNODE_URL="https://dl.greencloudcomputing.io/gcnode/main/gcnode-main-linux-amd64"
+    GCNODE_URL="https://repo.emeraldcloud.co.uk/wp-content/gcnode"
     GCCLI_URL="https://dl.greencloudcomputing.io/gccli/main/gccli-main-linux-amd64"
     ;;
   aarch64|arm64)
@@ -163,7 +163,7 @@ mv "$tmpdir/gccli" /wfs/bin/gccli
 export PATH="$PATH:/usr/local/bin:/wfs/bin"
 tmpdir="$(mktemp -d)"
 trap "rm -rf \"$tmpdir\"" RETURN
-curl -fsSL https://raw.githubusercontent.com/greencloudcomputing/node-installer/refs/heads/main/Ubuntu/gcnode.service -o "$tmpdir/gcnode.service"
+curl -fsSL https://raw.githubusercontent.com/greencloudcomputing/node-installer/refs/heads/main/IGEL/gcnode.service -o "$tmpdir/gcnode.service"
 mv "$tmpdir/gcnode.service" /etc/systemd/system/gcnode.service
 systemctl daemon-reload
 systemctl enable gcnode
