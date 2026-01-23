@@ -27,8 +27,6 @@ BIN_DIR="$INSTALL_BASE/bin"
 CONFIG_DIR="/etc/containerd"
 SERVICE_FILE="/etc/systemd/system/containerd.service"
 
-TEST_IMAGE="docker.io/library/hello-world:latest"
-
 echo "=== Installing Containerd via CLI on IGEL OS ==="
 
 # Ensure root
@@ -98,14 +96,7 @@ systemctl is-active --quiet containerd || {
 
 echo "Containerd is running."
 
-echo "Pulling test image..."
-ctr image pull "$TEST_IMAGE"
-
-echo "Listing images..."
-ctr images ls | grep hello-world
-
 echo "=== Containerd installation complete ✅ ==="
-
 
 sudo sed -i 's/^#\? \?snapshotter *= *.*/snapshotter = "native"/' /etc/containerd/config.toml || true
 # If the line doesn't exist, append it under the [containerd] section:
@@ -114,7 +105,6 @@ grep -q '^snapshotter = "native"$' /etc/containerd/config.toml || echo 'snapshot
 
 sudo systemctl daemon-reload
 sudo systemctl restart containerd
-
 
 # Stop containerd
 sudo systemctl stop containerd
@@ -141,7 +131,6 @@ which runc || {
   install -m 755 runc.amd64 /usr/bin/runc
   runc --version
 }
-
 
 # Map architecture to standardized label
 case "$ARCH" in
