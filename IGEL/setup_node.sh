@@ -100,8 +100,8 @@ echo "=== Containerd installation complete ✅ ==="
 
 sed -i 's/^#\? \?snapshotter *= *.*/snapshotter = "native"/' /etc/containerd/config.toml || true
 # If the line doesn't exist, append it under the [containerd] section:
-grep -q '^\[containerd\]' /etc/containerd/config.toml || echo '[containerd]' | sudo tee -a /etc/containerd/config.toml
-grep -q '^snapshotter = "native"$' /etc/containerd/config.toml || echo 'snapshotter = "native"' | sudo tee -a /etc/containerd/config.toml
+grep -q '^\[containerd\]' /etc/containerd/config.toml || echo '[containerd]' | tee -a /etc/containerd/config.toml
+grep -q '^snapshotter = "native"$' /etc/containerd/config.toml || echo 'snapshotter = "native"' | tee -a /etc/containerd/config.toml
 
 systemctl daemon-reload
 systemctl restart containerd
