@@ -1,0 +1,13 @@
+
+[Unit]
+Description=GreenCloud Node Service
+After=network.target
+
+[Service]
+ExecStart=/var/lib/greencloud/gcnode
+Restart=always
+User=root
+WorkingDirectory=/var/lib/greencloud
+
+[Install]
+WantedBy=multi-user.target
