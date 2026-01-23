@@ -98,29 +98,29 @@ echo "Containerd is running."
 
 echo "=== Containerd installation complete ✅ ==="
 
-sudo sed -i 's/^#\? \?snapshotter *= *.*/snapshotter = "native"/' /etc/containerd/config.toml || true
+sed -i 's/^#\? \?snapshotter *= *.*/snapshotter = "native"/' /etc/containerd/config.toml || true
 # If the line doesn't exist, append it under the [containerd] section:
 grep -q '^\[containerd\]' /etc/containerd/config.toml || echo '[containerd]' | sudo tee -a /etc/containerd/config.toml
 grep -q '^snapshotter = "native"$' /etc/containerd/config.toml || echo 'snapshotter = "native"' | sudo tee -a /etc/containerd/config.toml
 
-sudo systemctl daemon-reload
-sudo systemctl restart containerd
+systemctl daemon-reload
+systemctl restart containerd
 
 # Stop containerd
-sudo systemctl stop containerd
+systemctl stop containerd
 
 # Move any existing state (if present)
-sudo mkdir -p /wfs/containerd
+mkdir -p /wfs/containerd
 if [ -d /var/lib/containerd ] && [ ! -L /var/lib/containerd ]; then
-  sudo rsync -aHAX /var/lib/containerd/ /wfs/containerd/
-  sudo rm -rf /var/lib/containerd
+  rsync -aHAX /var/lib/containerd/ /wfs/containerd/
+  rm -rf /var/lib/containerd
 fi
 
 # Symlink to /wfs
-sudo ln -sf /wfs/containerd /var/lib/containerd
+ln -sf /wfs/containerd /var/lib/containerd
 
 # Start containerd
-sudo systemctl start containerd
+systemctl start containerd
 
 # Check again
 which runc || {
