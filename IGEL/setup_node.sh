@@ -1,70 +1,117 @@
 
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
-# =============================
-# Detect architecture
-# =============================
-detect_arch() {
-  local uname_m
-  uname_m="$(uname -m)"
-  case "$uname_m" in
-    x86_64|amd64) echo "amd64" ;;
-    aarch64|arm64) echo "arm64" ;;
-    armv7l|armv7) echo "arm" ;;
-    *) echo "Unsupported architecture: $uname_m" >&2; exit 1 ;;
-  esac
-}
-ARCH="$(detect_arch)"
-
-
-
-
-CONTAINERD_VERSION="1.7.12"
+# ─────────────────────────────────────────────────────────────
+# Globals & Configuration
+# ─────────────────────────────────────────────────────────────
+CONTAINERD_VERSION="2.2.1"
+RUNC_VERSION="1.1.12"
 
 INSTALL_BASE="/wfs/containerd"
-BIN_DIR="$INSTALL_BASE/bin"
+BIN_DIR="${INSTALL_BASE}/bin"
 CONFIG_DIR="/etc/containerd"
 SERVICE_FILE="/etc/systemd/system/containerd.service"
 
-echo "=== Installing Containerd via CLI on IGEL OS ==="
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+NC='\033[0m'
 
-# Ensure root
-if [[ $EUID -ne 0 ]]; then
-  echo "ERROR: Run as root"
+export DEBIAN_FRONTEND=noninteractive
+
+# ─────────────────────────────────────────────────────────────
+# Error handling
+# ─────────────────────────────────────────────────────────────
+trap 'echo -e "\n${YELLOW}✖ Error on line ${LINENO}. Aborting.${NC}" >&2' ERR
+
+# ─────────────────────────────────────────────────────────────
+# Utilities
+# ─────────────────────────────────────────────────────────────
+die() {
+  echo -e "${YELLOW}ERROR:${NC} $*" >&2
   exit 1
-fi
+}
 
-# Create directories
-echo "Creating directories..."
-mkdir -p "$BIN_DIR" "$CONFIG_DIR"
+require_root() {
+  [[ ${EUID} -eq 0 ]] || die "Run as root"
+}
 
-cd /tmp
+detect_arch() {
+  case "$(uname -m)" in
+    x86_64|amd64) echo "amd64" ;;
+    aarch64|arm64) echo "arm64" ;;
+    armv7l|armv7) echo "arm" ;;
+    *) die "Unsupported architecture: $(uname -m)" ;;
+  esac
+}
 
-echo "Downloading Containerd ${CONTAINERD_VERSION}..."
-curl -fsSL \
-  https://github.com/containerd/containerd/releases/download/v${CONTAINERD_VERSION}/containerd-${CONTAINERD_VERSION}-linux-${ARCH}.tar.gz \
-  -o containerd.tar.gz
+spin() {
+  local pid="$1"
+  local spin='|/-\'
+  while kill -0 "$pid" 2>/dev/null; do
+    for c in ${spin}; do
+      printf " [%c]  " "$c"
+      sleep 0.1
+      printf "\b\b\b\b\b\b"
+    done
+  done
+}
 
-echo "Extracting Containerd..."
-tar -xzf containerd.tar.gz
-cp -r bin/* "$BIN_DIR"
+STEP=1
+TOTAL=9
+run_step() {
+  local title="$1"; shift
+  echo -e "${CYAN}Step ${STEP}/${TOTAL}: ${title}${NC}"
+  ((STEP++))
 
-# Symlink binaries into PATH
-echo "Linking binaries..."
-ln -sf "$BIN_DIR/containerd" /usr/bin/containerd
-ln -sf "$BIN_DIR/ctr" /usr/bin/ctr
-ln -sf "$BIN_DIR/containerd-shim" /usr/bin/containerd-shim
-ln -sf "$BIN_DIR/containerd-shim-runc-v2" /usr/bin/containerd-shim-runc-v2
+  (
+    set -Eeuo pipefail
+    "$@"
+  ) &>/dev/null &
 
-echo "Generating default containerd config..."
-containerd config default > "$CONFIG_DIR/config.toml"
+  local pid=$!
+  spin "$pid"
 
-echo "Installing systemd service..."
-cat > "$SERVICE_FILE" << EOF
+  wait "$pid" \
+    && echo -e "${GREEN}✔ ${title} completed${NC}" \
+    || die "${title} failed"
+}
+
+mktempdir() {
+  local d
+  d="$(mktemp -d)"
+  trap "rm -rf '${d}'" RETURN
+  echo "$d"
+}
+
+# ─────────────────────────────────────────────────────────────
+# Begin installation
+# ─────────────────────────────────────────────────────────────
+require_root
+ARCH="$(detect_arch)"
+
+run_step "Creating directories" mkdir -p "${BIN_DIR}" "${CONFIG_DIR}"
+
+run_step "Downloading containerd" \
+  curl -fsSL \
+  "https://github.com/containerd/containerd/releases/download/v${CONTAINERD_VERSION}/containerd-${CONTAINERD_VERSION}-linux-${ARCH}.tar.gz" \
+  -o /tmp/containerd.tgz
+
+run_step "Installing containerd" bash -c '
+  tar -xzf /tmp/containerd.tgz -C /tmp
+  cp -r /tmp/bin/* "'"${BIN_DIR}"'"
+  ln -sf "'"${BIN_DIR}"'/containerd" /usr/bin/containerd
+  ln -sf "'"${BIN_DIR}"'/ctr" /usr/bin/ctr
+  ln -sf "'"${BIN_DIR}"'/containerd-shim"* /usr/bin/
+'
+
+run_step "Configuring containerd" bash -c '
+  containerd config default > "'"${CONFIG_DIR}"'/config.toml"
+
+  cat > "'"${SERVICE_FILE}"'" <<EOF
 [Unit]
 Description=containerd container runtime
-Documentation=https://containerd.io
 After=network.target
 
 [Service]
@@ -74,136 +121,91 @@ Delegate=yes
 KillMode=process
 OOMScoreAdjust=-999
 LimitNOFILE=1048576
-LimitNPROC=infinity
-LimitCORE=infinity
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-echo "Reloading systemd..."
-systemctl daemon-reload
-systemctl enable containerd
-systemctl start containerd
+  systemctl daemon-reload
+  systemctl enable --now containerd
+'
 
-sleep 2
+run_step "Persist containerd state to /wfs" bash -c '
+  systemctl stop containerd
 
-echo "Checking containerd status..."
-systemctl is-active --quiet containerd || {
-  echo "ERROR: containerd is not running"
-  exit 1
-}
+  mkdir -p /wfs/containerd
+  if [[ -d /var/lib/containerd && ! -L /var/lib/containerd ]]; then
+    rsync -aHAX /var/lib/containerd/ /wfs/containerd/
+    rm -rf /var/lib/containerd
+  fi
 
-echo "Containerd is running."
+  ln -sf /wfs/containerd /var/lib/containerd
+  systemctl start containerd
+'
 
-echo "=== Containerd installation complete ✅ ==="
+run_step "Installing runc" bash -c '
+  command -v runc && exit 0
 
-sed -i 's/^#\? \?snapshotter *= *.*/snapshotter = "native"/' /etc/containerd/config.toml || true
-# If the line doesn't exist, append it under the [containerd] section:
-grep -q '^\[containerd\]' /etc/containerd/config.toml || echo '[containerd]' | tee -a /etc/containerd/config.toml
-grep -q '^snapshotter = "native"$' /etc/containerd/config.toml || echo 'snapshotter = "native"' | tee -a /etc/containerd/config.toml
+  curl -fsSL \
+    "https://github.com/opencontainers/runc/releases/download/v'"${RUNC_VERSION}"'/runc.'"${ARCH}"'" \
+    -o /usr/bin/runc
 
-systemctl daemon-reload
-systemctl restart containerd
+  chmod +x /usr/bin/runc
+'
 
-# Stop containerd
-systemctl stop containerd
-
-# Move any existing state (if present)
-mkdir -p /wfs/containerd
-if [ -d /var/lib/containerd ] && [ ! -L /var/lib/containerd ]; then
-  rsync -aHAX /var/lib/containerd/ /wfs/containerd/
-  rm -rf /var/lib/containerd
-fi
-
-# Symlink to /wfs
-ln -sf /wfs/containerd /var/lib/containerd
-
-# Start containerd
-systemctl start containerd
-
-# Check again
-which runc || {
-  # Download a matching runc (example version; choose one appropriate for your containerd)
-  cd /tmp
-  RUNC_VER="1.1.12"
-  curl -fsSLo runc.amd64 https://github.com/opencontainers/runc/releases/download/v${RUNC_VER}/runc.amd64
-  install -m 755 runc.amd64 /usr/bin/runc
-  runc --version
-}
-
-# Map architecture to standardized label
+# ─────────────────────────────────────────────────────────────
+# GreenCloud binaries
+# ─────────────────────────────────────────────────────────────
 case "$ARCH" in
-  x86_64|amd64)
-    echo -e "✔ x86_64 architecture detected"
+  amd64)
     GCNODE_URL="https://repo.emeraldcloud.co.uk/wp-content/gcnode"
     GCCLI_URL="https://dl.greencloudcomputing.io/gccli/main/gccli-main-linux-amd64"
     ;;
-  aarch64|arm64)
-    echo -e "✔ ARM64 architecture detected"
+  arm64)
     GCNODE_URL="https://dl.greencloudcomputing.io/gcnode/main/gcnode-main-linux-arm64"
     GCCLI_URL="https://dl.greencloudcomputing.io/gccli/main/gccli-main-linux-arm64"
     ;;
-  *)
-    echo -e "Unsupported architecture: $ARCH"
-    exit 1
-    ;;
+  *) die "Unsupported GreenCloud arch" ;;
 esac
 
-mkdir -p /var/lib/greencloud
-tmpdir="$(mktemp -d)"
-trap "rm -rf \"$tmpdir\"" RETURN
-curl -fsSL "$GCNODE_URL" -o "$tmpdir/gcnode"
-chmod +x "$tmpdir/gcnode"
-mv "$tmpdir/gcnode" /var/lib/greencloud/gcnode
-mkdir -p /wfs/bin /usr/local/bin
-curl -fsSL "$GCCLI_URL" -o "$tmpdir/gccli"
-chmod +x "$tmpdir/gccli"
-mv "$tmpdir/gccli" /wfs/bin/gccli
-export PATH="$PATH:/usr/local/bin:/wfs/bin"
-tmpdir="$(mktemp -d)"
-trap "rm -rf \"$tmpdir\"" RETURN
-curl -fsSL https://raw.githubusercontent.com/greencloudcomputing/node-installer/refs/heads/main/IGEL/gcnode.service -o "$tmpdir/gcnode.service"
-mv "$tmpdir/gcnode.service" /etc/systemd/system/gcnode.service
-systemctl daemon-reload
-systemctl enable gcnode
+run_step "Installing GreenCloud binaries" bash -c '
+  mkdir -p /var/lib/greencloud /wfs/bin
 
-SYSCTL_CONF="/etc/sysctl.d/99-ping-group.conf"
-  PING_RANGE_LINE="net.ipv4.ping_group_range = 0 2147483647"
-  PROC_NODE="/proc/sys/net/ipv4/ping_group_range"
+  curl -fsSL "'"${GCNODE_URL}"'" -o /var/lib/greencloud/gcnode
+  chmod +x /var/lib/greencloud/gcnode
 
-  # 1) Persist the setting
-  mkdir -p /etc/sysctl.d
-  if [ -f "$SYSCTL_CONF" ] && grep -q "^net\.ipv4\.ping_group_range" "$SYSCTL_CONF"; then
-    sed -i "s/^net\.ipv4\.ping_group_range.*/$PING_RANGE_LINE/" "$SYSCTL_CONF"
-  else
-    printf "%s\n" "$PING_RANGE_LINE" > "$SYSCTL_CONF"
-  fi
+  curl -fsSL "'"${GCCLI_URL}"'" -o /wfs/bin/gccli
+  chmod +x /wfs/bin/gccli
+  export PATH="$PATH:/usr/local/bin:/wfs/bin"
+'
 
-  # 2) Apply immediately without relying on sysctl --system
-  if [ -e "$PROC_NODE" ]; then
-    # Write the two numbers directly into /proc node
-    echo "0 2147483647" > "$PROC_NODE"
-  else
-    echo "WARNING: $PROC_NODE does not exist. Your kernel may not support ping_group_range." >&2
-    exit 0
-  fi
+run_step "Installing gcnode systemd service" bash -c '
+  curl -fsSL \
+    https://raw.githubusercontent.com/greencloudcomputing/node-installer/refs/heads/main/IGEL/gcnode.service \
+    -o /etc/systemd/system/gcnode.service
 
-  # 3) Verify
-  CURRENT=$(cat "$PROC_NODE")
-  echo "Applied: net.ipv4.ping_group_range = $CURRENT"
-  
-# --- Authentication & Node registration ---
+  systemctl daemon-reload
+  systemctl enable gcnode
+'
+
+run_step "Configuring ping_group_range" bash -c '
+  conf=/etc/sysctl.d/99-ping-group.conf
+  echo "net.ipv4.ping_group_range = 0 2147483647" > "$conf"
+  [[ -e /proc/sys/net/ipv4/ping_group_range ]] \
+    && echo "0 2147483647" > /proc/sys/net/ipv4/ping_group_range
+'
+
+# ─────────────────────────────────────────────────────────────
+# Authentication & Node registration
+# ─────────────────────────────────────────────────────────────
 gccli logout -q >/dev/null 2>&1 || true
 
-echo -ne "\nPlease enter your GreenCloud API key (input hidden):"
-read -rs API_KEY
+read -rsp "Enter GreenCloud API key: " API_KEY; echo
 echo
 if ! gccli login -k "$API_KEY"  >/dev/null 2>&1; then
   echo -e "Login failed. Please check your API key."
   exit 1
 fi
-
 echo -ne "\nPlease enter what you would like to name the node:"
 read -r NODE_NAME
 
