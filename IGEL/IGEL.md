@@ -1,6 +1,6 @@
 # GreenCloud on IGEL
 
-This repository provides instructions for installing **GreenCloud** on an **IGEL** system using the official automated installer script.
+This repository provides instructions for installing **GreenCloud** on an **IGEL** OS using the official automated installer script.
 
 ---
 
@@ -41,4 +41,4 @@ bash setup_node.sh
 
 ## Notes
 
-This installation is **not persistent**. GreenCloud must be reinstalled after reboot unless persistence is enabled.
+This installation is **not persistent**. GreenCloud must be reinstalled after reboot.
