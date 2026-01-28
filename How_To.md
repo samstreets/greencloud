@@ -2,8 +2,14 @@
 # GCNode Usage Guide
 
 This document explains how to manage the **gcnode** service using `systemctl`, including how to stop, start, restart the service, and how to view logs.
-All commands must be run using sudo or as root
-By default the node is set to start after completing the install and start at boot of the OS
+
+---
+
+By default the node is set to start after completing the install and start at boot of the OS using a service.
+
+---
+
+All commands must be run using sudo or as root.
 
 ---
 
