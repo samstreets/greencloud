@@ -30,9 +30,14 @@ wget https://raw.githubusercontent.com/greencloudcomputing/node-installer/refs/h
 
 ### Step 2: Run the Installer
 
-**Default mode (with logging and real-time output):**
+**Default mode (no logging, spinner only):**
 ```bash
 sudo bash setup_greencloud.sh
+```
+
+**Logging mode (with logging and real-time output):**
+```bash
+sudo LOGGING=true bash setup_greencloud.sh
 ```
 
 **What happens:**
@@ -40,14 +45,10 @@ sudo bash setup_greencloud.sh
 - A timestamped log file is automatically created: `greencloud-setup-YYYYMMDD-HHMMSS.log` in the same directory
 - All output shown on screen is also saved to the log file
 
-**Silent mode (no logging, spinner only):**
-```bash
-sudo GREENCLOUD_ENABLE_LOGGING=false bash setup_greencloud.sh
-```
 
 **Custom log location:**
 ```bash
-sudo GREENCLOUD_LOG_FILE=/var/log/greencloud-setup.log bash setup_greencloud.sh
+sudo GREENCLOUD_LOG_FILE=/var/log/greencloud-setup.log LOGGING=true bash setup_greencloud.sh
 ```
 
 ---
@@ -132,9 +133,14 @@ wget https://raw.githubusercontent.com/greencloudcomputing/node-installer/refs/h
 
 ### Step 2: Run the Removal Script
 
-**Default mode (with logging and real-time output):**
+**Default mode (no logging, spinner only):**
 ```bash
-sudo bash remove_greencloud.sh
+sudo  bash remove_greencloud.sh
+```
+
+**Logging mode (with logging and real-time output):**
+```bash
+sudo LOGGING=false bash remove_greencloud.sh
 ```
 
 **What happens:**
@@ -142,14 +148,10 @@ sudo bash remove_greencloud.sh
 - A timestamped log file is automatically created: `greencloud-remove-YYYYMMDD-HHMMSS.log` in the same directory
 - All output shown on screen is also saved to the log file
 
-**Silent mode (no logging, spinner only):**
-```bash
-sudo GREENCLOUD_ENABLE_LOGGING=false bash remove_greencloud.sh
-```
 
 **Custom log location:**
 ```bash
-sudo GREENCLOUD_LOG_FILE=/var/log/greencloud-removal.log bash remove_greencloud.sh
+sudo LOGGING=false GREENCLOUD_LOG_FILE=/var/log/greencloud-removal.log bash remove_greencloud.sh
 ```
 
 ---
@@ -175,7 +177,7 @@ Both scripts support the following environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GREENCLOUD_ENABLE_LOGGING` | `true` | Set to `false` to disable logging and real-time output |
+| `tLOGGING` | `flase` | Set to `true` to enable logging and real-time output |
 | `GREENCLOUD_LOG_FILE` | `./greencloud-[setup\|remove]-YYYYMMDD-HHMMSS.log` | Custom path for the log file |
 
 ---
@@ -230,7 +232,7 @@ For scripted deployments, use silent mode to minimize output:
 ```bash
 #!/bin/bash
 # Deploy script
-sudo GREENCLOUD_ENABLE_LOGGING=false bash setup_greencloud.sh <<EOF
+sudo bash setup_greencloud.sh <<EOF
 your-api-key-here
 your-node-name
 EOF
