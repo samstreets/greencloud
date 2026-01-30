@@ -224,44 +224,6 @@ cat greencloud-setup-20250130-142345.log
 
 ---
 
-## Advanced Usage
-
-### Automated Deployments
-
-For scripted deployments, use silent mode to minimize output:
-```bash
-#!/bin/bash
-# Deploy script
-sudo bash setup_greencloud.sh <<EOF
-your-api-key-here
-your-node-name
-EOF
-```
-
-### Centralized Logging
-
-For enterprise environments, specify a centralized log location:
-```bash
-# Installation
-sudo GREENCLOUD_LOG_FILE=/var/log/greencloud/install-$(hostname)-$(date +%Y%m%d).log bash setup_greencloud.sh
-
-# Removal
-sudo GREENCLOUD_LOG_FILE=/var/log/greencloud/remove-$(hostname)-$(date +%Y%m%d).log bash remove_greencloud.sh
-```
-
-### Running Without Prompts
-
-You can pipe credentials to the script (use with caution in production):
-```bash
-# Installation
-echo -e "your-api-key\nyour-node-name" | sudo bash setup_greencloud.sh
-
-# Removal
-echo "your-api-key" | sudo bash remove_greencloud.sh
-```
-
----
-
 ## Security Notes
 
 - **API keys are never logged** - Input is hidden and not written to log files
